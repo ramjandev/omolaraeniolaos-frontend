@@ -33,6 +33,25 @@ function GateStaffVerificationPageInner() {
     : 'valid';
   const [verificationType, setVerificationType] =
     React.useState<VerificationType>(initialVerificationType);
+  const [guest, setGuest] = React.useState({
+    name: 'Guest',
+    guestType: 'General',
+    partySize: 1,
+    rsvpStatus: 'Confirmed',
+    gate: 'Gate 1',
+    checkedInAt: '',
+  });
+
+  React.useEffect(() => {
+    const stored = sessionStorage.getItem('gate-last-guest');
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as Partial<typeof guest>;
+      setGuest((current) => ({ ...current, ...parsed }));
+    } catch {
+      sessionStorage.removeItem('gate-last-guest');
+    }
+  }, []);
 
   return (
     <GateMobileShell showHeader={false} activeTab="checkin">
@@ -56,27 +75,27 @@ function GateStaffVerificationPageInner() {
         {/* Guest Details White Card */}
         <div className="bg-white rounded-3xl p-5 border border-[#EAE5DC] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-3.5">
           <h2 className="font-semibold text-lg text-[#1F1916]">
-            Adeleke Adebayo
+            {guest.name}
           </h2>
 
           <div className="space-y-1">
             <span className="text-xs text-[#8A7E75] block">Guest Type</span>
             <span className="text-sm font-semibold text-[#1F1916] block">
-              VIP / Special Guests
+              {guest.guestType}
             </span>
           </div>
 
           <div className="space-y-1">
             <span className="text-xs text-[#8A7E75] block">Party Size</span>
             <span className="text-sm font-semibold text-[#1F1916] block">
-              2
+              {guest.partySize}
             </span>
           </div>
 
           <div className="space-y-1">
             <span className="text-xs text-[#8A7E75] block">RSVP Status</span>
             <span className="text-sm font-semibold text-[#1F1916] block">
-              Confirmed
+              {guest.rsvpStatus}
             </span>
           </div>
 
@@ -90,14 +109,14 @@ function GateStaffVerificationPageInner() {
           <div className="space-y-1">
             <span className="text-xs text-[#8A7E75] block">Seating</span>
             <span className="text-sm font-semibold text-[#1F1916] block">
-              VIP Table 01
+              Not assigned
             </span>
           </div>
 
           <div className="space-y-1">
             <span className="text-xs text-[#8A7E75] block">Seats</span>
             <span className="text-sm font-semibold text-[#1F1916] block">
-              VIP-01, VIP-02
+              Not assigned
             </span>
           </div>
         </div>
@@ -210,15 +229,15 @@ function GateStaffVerificationPageInner() {
               <div className="space-y-2 text-xs">
                 <div>
                   <span className="text-[#8A7E75] block">Check-in time</span>
-                  <span className="font-semibold text-[#1F1916]">10:35 AM</span>
+                  <span className="font-semibold text-[#1F1916]">{guest.checkedInAt ? new Date(guest.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Earlier today'}</span>
                 </div>
                 <div>
                   <span className="text-[#8A7E75] block">Gate</span>
-                  <span className="font-semibold text-[#1F1916]">Main Entrance</span>
+                  <span className="font-semibold text-[#1F1916]">{guest.gate}</span>
                 </div>
                 <div>
                   <span className="text-[#8A7E75] block">Staff member</span>
-                  <span className="font-semibold text-[#1F1916]">Tomi Adeyemi</span>
+                  <span className="font-semibold text-[#1F1916]">{guest.name}</span>
                 </div>
               </div>
 

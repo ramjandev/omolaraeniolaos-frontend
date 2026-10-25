@@ -19,10 +19,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { dispatchCoordinatedMessage, submitGuestRsvp } from '@/lib/api/platform';
-import { getEventGuests, updateEventGuest } from '@/lib/api/individual-events';
+import { dispatchCoordinatedMessage, listEventCommunications, listGuestThread, submitGuestRsvp } from '@/lib/api/platform';
+import { getEventGuests, getIndividualEventById, updateEventGuest } from '@/lib/api/individual-events';
 import { eventsPath, type OrganizerKind } from '@/lib/organizer';
 import { EventBreadcrumb } from '@/components/events/shared/EventBreadcrumb';
+import { TablePagination } from '@/components/shared/TablePagination';
 
 export interface CommGuest {
   id: string;
@@ -40,212 +41,6 @@ export interface CommGuest {
   chatHistory: { sender: 'system' | 'guest'; text: string; time: string }[];
 }
 
-const INITIAL_COMM_GUESTS: CommGuest[] = [
-  {
-    id: 'cg-1',
-    name: 'Chief Adeleke Adebayo',
-    email: 'adeleke.adebayo@nigeriagas.com',
-    phone: '+234 801 234 5678',
-    type: 'VIP',
-    partySize: 2,
-    rsvpStatus: 'No Response',
-    reminderStatus: 'Needs Reminder',
-    lastChannel: 'WhatsApp',
-    lastActive: '2 hours ago',
-    inviteSentDate: 'Oct 20, 2026',
-    dietary: 'None / Halal',
-    chatHistory: [],
-  },
-  {
-    id: 'cg-2',
-    name: 'Jasmine Lee',
-    email: 'jasmine.lee@globalart.com',
-    phone: '+234 802 991 2233',
-    type: 'General',
-    partySize: 2,
-    rsvpStatus: 'Confirmed',
-    reminderStatus: 'Not Required',
-    lastChannel: 'WhatsApp',
-    lastActive: '1 hour ago',
-    inviteSentDate: 'Oct 19, 2026',
-    dietary: 'Vegetarian',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: "Can't wait to see everyone there! Looking forward to an extraordinary gala.",
-        time: '1h ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-3',
-    name: 'Carlos Ramirez',
-    email: 'carlos.r@diplomat.es',
-    phone: '+234 809 443 1122',
-    type: 'General',
-    partySize: 1,
-    rsvpStatus: 'Tentative',
-    reminderStatus: 'Needs Reminder',
-    lastChannel: 'WhatsApp',
-    lastActive: '45 mins ago',
-    inviteSentDate: 'Oct 18, 2026',
-    dietary: 'Gluten-Free',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: 'I might be a little late due to flight schedule, but I will confirm definitely tomorrow.',
-        time: '45m ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-4',
-    name: 'Fatima Al-Sayed',
-    email: 'fatima@qatarinv.org',
-    phone: '+234 803 221 8899',
-    type: 'VIP',
-    partySize: 1,
-    rsvpStatus: 'No Response',
-    reminderStatus: 'Needs Reminder',
-    lastChannel: 'WhatsApp',
-    lastActive: '30 mins ago',
-    inviteSentDate: 'Oct 18, 2026',
-    dietary: 'Halal',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: "Thank you for the invite! I'll check with my chief of staff.",
-        time: '30m ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-5',
-    name: "Liam O'Connor",
-    email: 'liam.oc@celticgroup.ie',
-    phone: '+234 802 884 9911',
-    type: 'Family & Friends',
-    partySize: 2,
-    rsvpStatus: 'Confirmed',
-    reminderStatus: 'Not Required',
-    lastChannel: 'WhatsApp',
-    lastActive: '25 mins ago',
-    inviteSentDate: 'Oct 17, 2026',
-    dietary: 'Regular',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: 'Looking forward to it! Bringing my spouse as plus-one.',
-        time: '25m ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-6',
-    name: 'Nina Patel',
-    email: 'nina.patel@biotech.in',
-    phone: '+234 808 332 5566',
-    type: 'General',
-    partySize: 0,
-    rsvpStatus: 'Confirmed',
-    reminderStatus: 'Not Required',
-    lastChannel: 'WhatsApp',
-    lastActive: '20 mins ago',
-    inviteSentDate: 'Oct 16, 2026',
-    dietary: 'Vegetarian',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: "Sorry, I won't be able to make it in person due to overseas conference.",
-        time: '20m ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-7',
-    name: 'Ethan Chen',
-    email: 'e.chen@pacificfund.hk',
-    phone: '+234 803 667 9900',
-    type: 'General',
-    partySize: 1,
-    rsvpStatus: 'Tentative',
-    reminderStatus: 'Not Required',
-    lastChannel: 'WhatsApp',
-    lastActive: '15 mins ago',
-    inviteSentDate: 'Oct 15, 2026',
-    dietary: 'Regular',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: 'Excited for the event! Will RSVP as soon as my schedule clears.',
-        time: '15m ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-8',
-    name: 'Sophia Müller',
-    email: 'sophia.m@munichcap.de',
-    phone: '+234 805 119 4433',
-    type: 'General',
-    partySize: 1,
-    rsvpStatus: 'Confirmed',
-    reminderStatus: 'Not Required',
-    lastChannel: 'WhatsApp',
-    lastActive: '10 mins ago',
-    inviteSentDate: 'Oct 14, 2026',
-    dietary: 'Vegan',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: "Thanks for inviting me! I'll be in Lagos from Thursday.",
-        time: '10m ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-9',
-    name: 'Mateo Garcia',
-    email: 'm.garcia@medinvest.com',
-    phone: '+234 809 001 2244',
-    type: 'General',
-    partySize: 0,
-    rsvpStatus: 'Rejected',
-    reminderStatus: 'Not Required',
-    lastChannel: 'WhatsApp',
-    lastActive: '5 mins ago',
-    inviteSentDate: 'Oct 12, 2026',
-    dietary: 'None',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: 'Unfortunately, I have a prior commitment and will have to send my regrets.',
-        time: '5m ago',
-      },
-    ],
-  },
-  {
-    id: 'cg-10',
-    name: 'Aisha Bello',
-    email: 'aisha.bello@horizon.ng',
-    phone: '+234 802 774 1155',
-    type: 'Family & Friends',
-    partySize: 2,
-    rsvpStatus: 'Confirmed',
-    reminderStatus: 'Not Required',
-    lastChannel: 'WhatsApp',
-    lastActive: 'Just now',
-    inviteSentDate: 'Oct 21, 2026',
-    dietary: 'Halal',
-    chatHistory: [
-      {
-        sender: 'guest',
-        text: 'Count me in, bringing my sibling along!',
-        time: 'Just now',
-      },
-    ],
-  },
-];
 
 function mapRsvp(status: string): CommGuest['rsvpStatus'] {
   const value = status.toLowerCase();
@@ -262,69 +57,130 @@ interface GuestCommunicationsWorkspaceProps {
 
 export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommunicationsWorkspaceProps) {
   const [viewMode, setViewMode] = React.useState<'table' | 'chat'>('table');
-  const [guests, setGuests] = React.useState<CommGuest[]>(INITIAL_COMM_GUESTS);
-  const [activeGuestId, setActiveGuestId] = React.useState<string>('cg-1');
+  const [guests, setGuests] = React.useState<CommGuest[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState('');
+  const [eventTitle, setEventTitle] = React.useState('your event');
+  const [eventWhen, setEventWhen] = React.useState('');
+  const [eventVenue, setEventVenue] = React.useState('');
+  const [activeGuestId, setActiveGuestId] = React.useState('');
   const templatesHref = eventsPath(organizer, eventId, 'communications/templates');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [rsvpFilter, setRsvpFilter] = React.useState('all');
   const [typeFilter, setTypeFilter] = React.useState('all');
-  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
-  // Chat message input & interactive options
   const [chatInputText, setChatInputText] = React.useState('');
   const [selectedLanguage, setSelectedLanguage] = React.useState('English');
 
-  // Manual RSVP form on right sidebar
-  const activeGuest = guests.find((g) => g.id === activeGuestId) || guests[0];
-  const [manualStatus, setManualStatus] = React.useState<CommGuest['rsvpStatus']>(activeGuest.rsvpStatus);
-  const [manualPartySize, setManualPartySize] = React.useState<number>(activeGuest.partySize);
-  const [manualDietary, setManualDietary] = React.useState<string>(activeGuest.dietary || '');
-  const [manualGroup, setManualGroup] = React.useState<CommGuest['type']>(activeGuest.type);
+  const activeGuest = guests.find((g) => g.id === activeGuestId);
+  const [manualStatus, setManualStatus] = React.useState<CommGuest['rsvpStatus']>('No Response');
+  const [manualPartySize, setManualPartySize] = React.useState(1);
+  const [manualDietary, setManualDietary] = React.useState('');
+  const [manualGroup, setManualGroup] = React.useState<CommGuest['type']>('General');
 
-  // Sync manual form when active guest changes
   React.useEffect(() => {
-    if (activeGuest) {
-      setManualStatus(activeGuest.rsvpStatus);
-      setManualPartySize(activeGuest.partySize);
-      setManualDietary(activeGuest.dietary || '');
-      setManualGroup(activeGuest.type);
+    if (!activeGuest) return;
+    setManualStatus(activeGuest.rsvpStatus);
+    setManualPartySize(activeGuest.partySize);
+    setManualDietary(activeGuest.dietary || '');
+    setManualGroup(activeGuest.type);
+  }, [activeGuest]);
+
+  const loadGuests = React.useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setLoadError('');
     }
-  }, [activeGuestId]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const roster = await getEventGuests(eventId);
-        if (cancelled) return;
-        const mapped: CommGuest[] = roster.guests.map((guest) => ({
+    try {
+      const [roster, event, campaigns] = await Promise.all([
+        getEventGuests(eventId),
+        getIndividualEventById(eventId).catch(() => null),
+        listEventCommunications(eventId).catch(() => []),
+      ]);
+      const reminded = new Set<string>();
+      for (const campaign of campaigns) {
+        const isReminder = (campaign.subject || '').toLowerCase().includes('reminder');
+        if (!isReminder) continue;
+        for (const delivery of campaign.deliveries ?? []) {
+          if (delivery.status === 'SENT' || delivery.status === 'SANDBOX_LOGGED') {
+            reminded.add(delivery.attendeeId);
+          }
+        }
+      }
+      const mapped: CommGuest[] = roster.guests.map((guest) => {
+        const rsvpStatus = mapRsvp(guest.rsvpStatus);
+        return {
           id: guest.id,
           name: guest.name,
           email: guest.email,
           phone: guest.phone,
-          type: (guest.type as CommGuest['type']) || 'General',
+          type: (['VIP', 'General', 'Family & Friends', 'Speakers & Partners'].includes(guest.type)
+            ? guest.type
+            : 'General') as CommGuest['type'],
           partySize: guest.partySize,
-          rsvpStatus: mapRsvp(guest.rsvpStatus),
-          reminderStatus: guest.rsvpStatus === 'Confirmed' ? 'Not Required' : 'Needs Reminder',
+          rsvpStatus,
+          reminderStatus: rsvpStatus === 'Confirmed'
+            ? 'Not Required'
+            : reminded.has(guest.id)
+              ? 'Sent'
+              : 'Needs Reminder',
           lastChannel: (guest.inviteThrough as CommGuest['lastChannel']) || 'WhatsApp',
-          lastActive: 'Just now',
-          inviteSentDate: new Date().toLocaleDateString(),
-          dietary: guest.preference,
+          lastActive: '',
+          inviteSentDate: '',
+          dietary: guest.preference === '--' ? '' : guest.preference,
           chatHistory: [],
-        }));
-        if (!cancelled && mapped.length) {
-          setGuests(mapped);
-          setActiveGuestId(mapped[0].id);
-        }
-      } catch {
-        // Keep the designed fallback roster if the API is unreachable.
+        };
+      });
+      setEventTitle(event?.event?.title || 'your event');
+      setEventWhen([event?.event?.dateFormatted, event?.event?.timeFormatted].filter(Boolean).join(' · '));
+      setEventVenue([event?.event?.venueName, event?.event?.city].filter(Boolean).join(', '));
+      setGuests(mapped);
+      setActiveGuestId((current) => (mapped.some((guest) => guest.id === current) ? current : mapped[0]?.id || ''));
+      return mapped;
+    } catch {
+      if (!silent) {
+        setGuests([]);
+        setLoadError('Guest communications could not be loaded.');
       }
-    })();
+      return [];
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [eventId]);
+
+  React.useEffect(() => {
+    void loadGuests();
+  }, [loadGuests]);
+
+  React.useEffect(() => {
+    if (viewMode !== 'chat' || !activeGuestId) return;
+    let cancelled = false;
+    void listGuestThread(eventId, activeGuestId)
+      .then((messages) => {
+        if (cancelled) return;
+        setGuests((current) => current.map((guest) => {
+          if (guest.id !== activeGuestId) return guest;
+          const rows = Array.isArray(messages) ? messages : [];
+          const latest = rows.at(-1);
+          return {
+            ...guest,
+            chatHistory: rows.map((message) => ({
+              sender: message.direction === 'INBOUND' ? 'guest' as const : 'system' as const,
+              text: message.body,
+              time: new Date(message.createdAt).toLocaleString(),
+            })),
+            lastActive: latest ? new Date(latest.createdAt).toLocaleString() : guest.lastActive,
+          };
+        }));
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [activeGuestId, eventId, viewMode]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -332,6 +188,9 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
   };
 
   const needsReminderCount = guests.filter((g) => g.reminderStatus === 'Needs Reminder').length;
+  const confirmedCount = guests.filter((g) => g.rsvpStatus === 'Confirmed').length;
+  const rejectedCount = guests.filter((g) => g.rsvpStatus === 'Rejected').length;
+  const pendingCount = guests.filter((g) => g.rsvpStatus === 'No Response' || g.rsvpStatus === 'Tentative').length;
 
   const filteredGuests = guests.filter((g) => {
     if (rsvpFilter !== 'all' && g.rsvpStatus !== rsvpFilter) return false;
@@ -346,45 +205,35 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
     }
     return true;
   });
+  const pageRows = filteredGuests.slice((page - 1) * pageSize, page * pageSize);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchQuery, rsvpFilter, typeFilter]);
 
   const handleSendReminder = async (guest: CommGuest) => {
-    setGuests(
-      guests.map((g) =>
-        g.id === guest.id
-          ? {
-              ...g,
-              reminderStatus: 'Sent',
-              chatHistory: [
-                ...g.chatHistory,
-                {
-                  sender: 'system',
-                  text: 'Gentle reminder: Please confirm your RSVP for The Grand Royal Gala & Investiture.',
-                  time: 'Just now',
-                },
-              ],
-            }
-          : g
-      )
-    );
+    const notice = `Hello ${guest.name}, please confirm your RSVP for ${eventTitle}.`;
     try {
-      if (eventId) {
-        await dispatchCoordinatedMessage({
-          eventId,
-          attendeeIds: [guest.id],
-          channels: ['WHATSAPP', 'SMS', 'EMAIL'],
-          subject: 'RSVP reminder',
-          content: `Hello ${guest.name}, please confirm your RSVP for The Grand Royal Gala & Investiture.`,
-        });
-      }
-      showToast(`Reminder dispatched to ${guest.name} via WhatsApp, SMS and email.`);
+      await dispatchCoordinatedMessage({
+        eventId,
+        attendeeIds: [guest.id],
+        channels: ['WHATSAPP', 'EMAIL'],
+        subject: 'RSVP reminder',
+        content: notice,
+      });
+      const refreshed = await loadGuests(true);
+      const updated = refreshed.find((item) => item.id === guest.id);
+      showToast(updated?.reminderStatus === 'Sent'
+        ? `Reminder sent to ${guest.name}.`
+        : `The reminder for ${guest.name} was not delivered.`);
     } catch {
-      showToast(`Reminder saved for ${guest.name}. Providers will retry from sandbox.`);
+      showToast(`The reminder for ${guest.name} could not be sent.`);
     }
   };
 
   const handleSendChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInputText.trim()) return;
+    if (!activeGuest || !chatInputText.trim()) return;
 
     const newMsg = {
       sender: 'system' as const,
@@ -392,27 +241,22 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
       time: 'Just now',
     };
 
-    setGuests(
-      guests.map((g) =>
-        g.id === activeGuest.id
-          ? { ...g, chatHistory: [...g.chatHistory, newMsg] }
-          : g
-      )
-    );
+    setGuests((current) => current.map((item) => item.id === activeGuest.id
+      ? { ...item, chatHistory: [...item.chatHistory, newMsg] }
+      : item));
     setChatInputText('');
-    if (eventId) {
-      void dispatchCoordinatedMessage({
-        eventId,
-        attendeeIds: [activeGuest.id],
-        channels: ['WHATSAPP', 'SMS', 'EMAIL'],
-        subject: 'Message from your host',
-        content: newMsg.text,
-      }).catch(() => undefined);
-    }
-    showToast('Message sent via WhatsApp, SMS and email.');
+    void dispatchCoordinatedMessage({
+      eventId,
+      attendeeIds: [activeGuest.id],
+      channels: ['WHATSAPP', 'EMAIL'],
+      subject: 'Message from your host',
+      content: newMsg.text,
+    }).then(() => showToast('Message sent.'))
+      .catch(() => showToast('The message could not be sent.'));
   };
 
   const handleInteractiveRsvp = (status: CommGuest['rsvpStatus']) => {
+    if (!activeGuest) return;
     setGuests(
       guests.map((g) =>
         g.id === activeGuest.id
@@ -451,6 +295,7 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
 
   const handleSaveManualChanges = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeGuest) return;
     setGuests(
       guests.map((g) =>
         g.id === activeGuest.id
@@ -529,22 +374,22 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
           {/* 4 KPI Metric Cards matching screenshot */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-border/80 shadow-2xs bg-card p-5 space-y-1">
-              <span className="font-serif text-3xl font-bold text-foreground">120</span>
+              <span className="font-serif text-3xl font-bold text-foreground">{guests.length}</span>
               <p className="text-xs font-bold text-foreground">Total Invited Guest</p>
             </Card>
 
             <Card className="border-border/80 shadow-2xs bg-card p-5 space-y-1">
-              <span className="font-serif text-3xl font-bold text-[#2D5A46] dark:text-emerald-400">68</span>
+              <span className="font-serif text-3xl font-bold text-[#2D5A46] dark:text-emerald-400">{confirmedCount}</span>
               <p className="text-xs font-bold text-foreground">Confirmed</p>
             </Card>
 
             <Card className="border-border/80 shadow-2xs bg-card p-5 space-y-1">
-              <span className="font-serif text-3xl font-bold text-[#C53030]">16</span>
+              <span className="font-serif text-3xl font-bold text-[#C53030]">{rejectedCount}</span>
               <p className="text-xs font-bold text-foreground">Rejected</p>
             </Card>
 
             <Card className="border-border/80 shadow-2xs bg-card p-5 space-y-1">
-              <span className="font-serif text-3xl font-bold text-[#B45309]">36</span>
+              <span className="font-serif text-3xl font-bold text-[#B45309]">{pendingCount}</span>
               <p className="text-xs font-bold text-foreground">Pending/No Response</p>
             </Card>
           </div>
@@ -570,7 +415,7 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                 {/* 2 Needs to Send Reminder pill */}
                 <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#FCEDE6] text-[#6E3B1C] text-xs font-semibold border border-[#F5D5C6]">
                   <span className="w-4 h-4 rounded-full bg-[#E07A5F] text-white flex items-center justify-center text-[10px]">
-                    2
+                    {needsReminderCount}
                   </span>
                   <span>Needs to Send Reminder</span>
                 </div>
@@ -620,7 +465,19 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EBE3D9]">
-                  {filteredGuests.map((guest) => (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                        Loading guests…
+                      </td>
+                    </tr>
+                  ) : pageRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                        {loadError || 'No guests match this view.'}
+                      </td>
+                    </tr>
+                  ) : pageRows.map((guest) => (
                     <tr key={guest.id} className="hover:bg-[#FAF7F2]/50">
                       <td className="py-3.5 px-4">
                         <input type="checkbox" className="rounded" />
@@ -640,9 +497,12 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                           value={guest.type}
                           onChange={(e) => {
                             const newType = e.target.value as CommGuest['type'];
-                            setGuests(
-                              guests.map((g) => (g.id === guest.id ? { ...g, type: newType } : g))
-                            );
+                            const previous = guest.type;
+                            setGuests((current) => current.map((item) => (item.id === guest.id ? { ...item, type: newType } : item)));
+                            void updateEventGuest(eventId, guest.id, { type: newType }).catch(() => {
+                              setGuests((current) => current.map((item) => (item.id === guest.id ? { ...item, type: previous } : item)));
+                              showToast(`Could not update ${guest.name}.`);
+                            });
                           }}
                           className="h-8 px-2.5 rounded-lg border border-[#EBE3D9] bg-card text-foreground text-xs cursor-pointer"
                         >
@@ -720,44 +580,22 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="p-4 md:p-6 border-t border-[#EBE3D9] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span>Rows per page</span>
-                <select className="h-8 px-2 rounded-lg border border-[#EBE3D9] bg-card text-foreground text-xs">
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="50">50</option>
-                </select>
-                <span>showing 1–{filteredGuests.length} of 150 rows</span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Button size="sm" variant="outline" className="h-8 text-xs rounded-lg px-3">
-                  Previous
-                </Button>
-                <span className="w-8 h-8 rounded-lg bg-[#6E3B1C] text-white flex items-center justify-center font-bold text-xs">
-                  1
-                </span>
-                <Button size="sm" variant="ghost" className="h-8 w-8 text-xs rounded-lg p-0">
-                  2
-                </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 text-xs rounded-lg p-0">
-                  3
-                </Button>
-                <span className="px-1 text-muted-foreground">...</span>
-                <Button size="sm" variant="ghost" className="h-8 w-8 text-xs rounded-lg p-0">
-                  15
-                </Button>
-                <Button size="sm" variant="outline" className="h-8 text-xs rounded-lg px-3">
-                  Next
-                </Button>
-              </div>
-            </div>
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={filteredGuests.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
           </Card>
         </div>
+      ) : !activeGuest ? (
+        <p className="text-sm text-muted-foreground">Select a guest to open the conversation.</p>
       ) : (
-        /* VIEW MODE 2: 3-COLUMN WHATSAPP CHAT CONVERSATION matching media_1791786489953_6d4f34e1.png */
+        /* VIEW MODE 2: 3-COLUMN WHATSAPP CHAT CONVERSATION */
         <div className="space-y-4">
           {/* Top navigation row */}
           <div className="flex items-center justify-between">
@@ -825,7 +663,7 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                         <p className="text-[11px] text-muted-foreground truncate">
                           {g.chatHistory.length > 0
                             ? g.chatHistory[g.chatHistory.length - 1].text
-                            : 'We are looking forward to c...'}
+                            : 'No messages yet'}
                         </p>
 
                         <div className="flex items-center justify-between pt-0.5">
@@ -873,22 +711,22 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                   {/* Event Thumbnail Header */}
                   <div className="relative rounded-xl overflow-hidden h-28 bg-gradient-to-r from-[#703816] to-[#5C2911] p-3 flex flex-col justify-end text-white">
                     <Maximize2 className="w-4 h-4 text-white/80 absolute top-2.5 right-2.5" />
-                    <p className="font-serif font-bold text-sm">The Grand Royal Gala &amp; Investitu...</p>
-                    <p className="text-[10px] text-white/80">Royal Investiture &amp; Gala</p>
+                    <p className="font-serif font-bold text-sm">{eventTitle}</p>
+                    <p className="text-[10px] text-white/80">{eventVenue || 'Venue to be confirmed'}</p>
                   </div>
 
                   <div className="space-y-1.5 text-xs text-foreground leading-relaxed">
                     <p className="font-bold text-[#6E3B1C]">
-                      Distinguished Chief {activeGuest.name}
+                      {activeGuest.name}
                     </p>
                     <p className="text-muted-foreground">
-                      You are cordially invited to *The Grand Royal Gala &amp; Investiture*.
+                      You are invited to {eventTitle}.
                     </p>
                     <p className="text-muted-foreground">
-                      📅 <strong>Date &amp; Time:</strong> Saturday, 12th December 2026 at 4:00 PM West Africa Time (Red Carpet from 3:00 PM)
+                      <strong>Date &amp; Time:</strong> {eventWhen || 'To be confirmed'}
                     </p>
                     <p className="text-muted-foreground">
-                      📌 <strong>Venue:</strong> The Monarch Event Centre
+                      <strong>Venue:</strong> {eventVenue || 'To be confirmed'}
                     </p>
                     <p className="text-muted-foreground pt-1 text-[11px]">
                       Kindly RSVP below to help us prepare your reserved seat and bespoke hospitality.

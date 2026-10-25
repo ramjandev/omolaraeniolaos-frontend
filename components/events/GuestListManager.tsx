@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Download, FileSpreadsheet, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
+import { ChevronsUpDown, Download, FileSpreadsheet, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { toast } from "react-toastify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,17 @@ const fieldClass =
 
 function phoneDigits(phone: string) {
   return phone.replace(/\D/g, "");
+}
+
+function hasGuestReply(status: WizardGuest["rsvpStatus"]) {
+  return status === "Accepted" || status === "Declined" || status === "Pending";
+}
+
+function rsvpLabel(status: WizardGuest["rsvpStatus"]) {
+  if (status === "Accepted") return "Confirmed";
+  if (status === "Declined") return "Rejected";
+  if (status === "Pending") return "Tentative";
+  return "";
 }
 
 function toGuest(values: GuestEntryValues, index = 0): WizardGuest {
@@ -68,6 +79,7 @@ export function GuestListManager({
   const [addOpen, setAddOpen] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [partySort, setPartySort] = React.useState<"asc" | "desc" | null>(null);
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [csvError, setCsvError] = React.useState("");
   const [csvFileName, setCsvFileName] = React.useState("");
@@ -91,6 +103,18 @@ export function GuestListManager({
         guest.group.toLowerCase().includes(query))
     );
   });
+  const visibleGuests = partySort
+    ? [...filtered].sort((a, b) => {
+        const left = hasGuestReply(a.rsvpStatus) ? a.partySize : -1;
+        const right = hasGuestReply(b.rsvpStatus) ? b.partySize : -1;
+        return partySort === "asc" ? left - right : right - left;
+      })
+    : filtered;
+  const statusCounts = React.useMemo(() => {
+    const counts = { All: guests.length, Accepted: 0, Declined: 0, Pending: 0, "Not Sent": 0 };
+    for (const guest of guests) counts[guest.rsvpStatus] += 1;
+    return counts;
+  }, [guests]);
 
   const appendGuests = (incoming: WizardGuest[]) => {
     const room = capacity - guests.length;
@@ -365,13 +389,13 @@ export function GuestListManager({
                 key={status}
                 type="button"
                 onClick={() => setFilter(status)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                   filter === status
                     ? "bg-[#241710] text-white"
                     : "bg-card border border-[#EBE3D9] text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {status}
+                {status} ({statusCounts[status]})
               </button>
             ))}
           </div>
@@ -395,13 +419,24 @@ export function GuestListManager({
                 <th className="py-3 px-4 font-semibold text-foreground">Guest &amp; Contact</th>
                 <th className="py-3 px-4 font-semibold text-foreground">Invitation Status</th>
                 <th className="py-3 px-4 font-semibold text-foreground">RSVP Status</th>
+                <th className="py-3 px-4 font-semibold text-foreground">
+                  <button
+                    type="button"
+                    onClick={() => setPartySort((current) => (current === "asc" ? "desc" : "asc"))}
+                    className="inline-flex items-center gap-1 font-semibold text-foreground"
+                  >
+                    Number of Guests
+                    <ChevronsUpDown className="size-3" />
+                  </button>
+                </th>
+                <th className="py-3 px-4 font-semibold text-foreground">Preference</th>
                 <th className="py-3 px-4 text-right font-semibold text-foreground">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EBE3D9]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-muted-foreground space-y-3">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground space-y-3">
                     <div className="text-3xl">👥</div>
                     <p className="text-xs">
                       {guests.length === 0
@@ -421,7 +456,11 @@ export function GuestListManager({
                   </td>
                 </tr>
               ) : (
-                filtered.map((guest) => (
+                visibleGuests.map((guest) => {
+                  const replied = hasGuestReply(guest.rsvpStatus);
+                  const label = rsvpLabel(guest.rsvpStatus);
+                  const sent = guest.invitationStatus === "Delivered";
+                  return (
                   <tr key={guest.id} className="hover:bg-[#FAF7F2]/50">
                     <td className="py-3 px-4">
                       <input
@@ -439,28 +478,44 @@ export function GuestListManager({
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-xs text-muted-foreground">{guest.invitationStatus}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge
-                        variant="secondary"
-                        className={`text-[11px] font-medium rounded-md px-2.5 py-0.5 ${
-                          guest.rsvpStatus === "Accepted"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : guest.rsvpStatus === "Declined"
-                              ? "bg-rose-100 text-rose-800"
-                              : "bg-stone-100 text-stone-700"
+                      <span
+                        className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-medium ${
+                          sent ? "bg-[#E7E4DF] text-[#4E463F]" : "bg-[#F3EFEA] text-[#8A817A]"
                         }`}
                       >
-                        {guest.rsvpStatus}
-                      </Badge>
+                        {sent ? "Sent" : "Not Sent"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {label ? (
+                        <Badge
+                          variant="secondary"
+                          className={`text-[11px] font-medium rounded-md px-2.5 py-0.5 ${
+                            guest.rsvpStatus === "Accepted"
+                              ? "bg-[#E3F3EC] text-[#2F8A5F]"
+                              : guest.rsvpStatus === "Declined"
+                                ? "bg-[#FBE4E1] text-[#B33927]"
+                                : "bg-[#F7EFE6] text-[#8C5835]"
+                          }`}
+                        >
+                          {label}
+                        </Badge>
+                      ) : (
+                        <span className="text-[13px] text-[#8C7D73]">--</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-[13px] text-foreground">
+                      {replied ? guest.partySize : "--"}
+                    </td>
+                    <td className="py-3 px-4 max-w-[180px] truncate text-[13px] text-foreground">
+                      {replied && guest.preference && guest.preference !== "--" ? guest.preference : "--"}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="inline-flex items-center justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => openEdit(guest)}
-                          className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg"
+                          className="p-1.5 text-[#7A3B18] hover:bg-[#F7EFE6] rounded-lg"
                           aria-label={`Edit ${guest.name}`}
                         >
                           <Pencil className="w-3.5 h-3.5" />
@@ -468,7 +523,7 @@ export function GuestListManager({
                         <button
                           type="button"
                           onClick={() => removeGuests([guest.id])}
-                          className="p-1.5 text-muted-foreground hover:text-rose-600 rounded-lg"
+                          className="p-1.5 text-[#B33927] hover:bg-[#FBE4E1] rounded-lg"
                           aria-label={`Remove ${guest.name}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -476,7 +531,8 @@ export function GuestListManager({
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

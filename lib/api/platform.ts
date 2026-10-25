@@ -29,6 +29,31 @@ export async function getCommsHealth() {
   }>(res);
 }
 
+export async function listEventCommunications(eventId: string) {
+  const res = await fetch(`${API_ROOT}/communications/events/${eventId}`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Unable to load communications');
+  return readJson<Array<{
+    subject?: string;
+    deliveries?: Array<{ attendeeId: string; status: string; sentAt?: string | null }>;
+  }>>(res);
+}
+
+export async function listGuestThread(eventId: string, attendeeId: string) {
+  const res = await fetch(`${API_ROOT}/communications/events/${eventId}/threads/${attendeeId}`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Unable to load the conversation');
+  return readJson<Array<{
+    direction: 'INBOUND' | 'OUTBOUND';
+    body: string;
+    createdAt: string;
+  }>>(res);
+}
+
 export async function dispatchCoordinatedMessage(body: {
   eventId: string;
   attendeeIds?: string[];
@@ -43,6 +68,51 @@ export async function dispatchCoordinatedMessage(body: {
   });
   if (!res.ok) throw new Error('Dispatch failed');
   return readJson(res);
+}
+
+export interface GuestPass {
+  attendeeId: string;
+  eventId: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  qrCode: string;
+  passToken?: string;
+  rsvpStatus: string;
+  status: string;
+  partySize: number;
+  dietaryPreference?: string | null;
+  language?: string | null;
+  guestType?: string | null;
+  notes?: string | null;
+  tableName?: string;
+  seatLabel?: string;
+  event?: {
+    id: string;
+    title: string;
+    description?: string | null;
+    startDate: string;
+    endDate?: string;
+    address?: string | null;
+    city?: string | null;
+    country?: string | null;
+    coverImageUrl?: string | null;
+    venueName?: string | null;
+  } | null;
+}
+
+export async function getGuestPass(query: {
+  attendeeId?: string | null;
+  eventId?: string | null;
+  qrCode?: string | null;
+}): Promise<GuestPass> {
+  const params = new URLSearchParams();
+  if (query.attendeeId) params.set('attendeeId', query.attendeeId);
+  if (query.eventId) params.set('eventId', query.eventId);
+  if (query.qrCode) params.set('qrCode', query.qrCode);
+  const res = await fetch(`${API_ROOT}/guest/pass?${params.toString()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Invitation could not be loaded');
+  return readJson<GuestPass>(res);
 }
 
 export async function submitGuestRsvp(body: {
@@ -65,6 +135,97 @@ export async function submitGuestRsvp(body: {
   return readJson(res);
 }
 
+export interface GateWorkspace {
+  staff: {
+    id: string;
+    profileId: string | null;
+    fullName: string;
+    email: string;
+    phone?: string | null;
+  };
+  events: Array<{
+    id: string;
+    title: string;
+    startDate: string;
+    gate: string;
+    organizer: string;
+    status: 'Upcoming' | 'Live' | 'Ended' | string;
+    expected: number;
+    checkedIn: number;
+  }>;
+  scans: Array<{
+    id: string;
+    name: string;
+    partySize: number;
+    eventId: string;
+    gate: string;
+    scannedAt: string;
+    status: string;
+  }>;
+}
+
+export interface GateGuestResult {
+  id: string;
+  name: string;
+  guestType: string;
+  partySize: number;
+  rsvpStatus: string;
+  checkInStatus: string;
+  qrCode: string;
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return false;
+  const res = await fetch(`${API_ROOT}/auth/refresh-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  });
+  if (!res.ok) return false;
+  const json = await res.json().catch(() => null);
+  const data = json?.data ?? json;
+  if (!data?.accessToken) return false;
+  localStorage.setItem('token', data.accessToken);
+  localStorage.setItem('accessToken', data.accessToken);
+  if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+  return true;
+}
+
+export async function pingGatePresence() {
+  const res = await fetch(`${API_ROOT}/gate/presence`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return res.ok;
+}
+
+export async function getGateWorkspace(): Promise<GateWorkspace> {
+  let res = await fetch(`${API_ROOT}/gate/workspace`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (res.status === 401 && (await refreshAccessToken())) {
+    res = await fetch(`${API_ROOT}/gate/workspace`, {
+      headers: authHeaders(),
+      cache: 'no-store',
+    });
+  }
+  if (!res.ok) throw new Error('Sign in as gate staff to see your events');
+  return readJson<GateWorkspace>(res);
+}
+
+export async function searchGateGuests(eventId: string, query: string): Promise<GateGuestResult[]> {
+  const params = new URLSearchParams({ eventId, q: query });
+  const res = await fetch(`${API_ROOT}/gate/guests?${params.toString()}`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Guests could not be loaded');
+  return readJson<GateGuestResult[]>(res);
+}
+
 export async function verifyGatePass(payload: {
   qrCode: string;
   gateTurnstile?: string;
@@ -74,7 +235,7 @@ export async function verifyGatePass(payload: {
 }) {
   const res = await fetch(`${API_ROOT}/gate/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
   const json = await res.json().catch(() => ({}));
@@ -91,7 +252,7 @@ export async function syncOfflineScans(
 ) {
   const res = await fetch(`${API_ROOT}/gate/sync`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({ scans }),
   });
   if (!res.ok) throw new Error('Offline sync failed');

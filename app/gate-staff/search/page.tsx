@@ -4,20 +4,34 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search } from 'lucide-react';
 import { GateMobileShell } from '@/components/gate-staff/GateMobileShell';
-import { INITIAL_GUESTS, GateGuest } from '@/lib/gate-staff-data';
+import { searchGateGuests, type GateGuestResult } from '@/lib/api/platform';
 
 export default function GateStaffSearchGuestPage() {
   const router = useRouter();
   const [query, setQuery] = React.useState('');
-  const [guests] = React.useState<GateGuest[]>(INITIAL_GUESTS);
+  const [eventId, setEventId] = React.useState('');
+  const [guests, setGuests] = React.useState<GateGuestResult[]>([]);
+  const [searched, setSearched] = React.useState(false);
 
-  // Filter guests
-  const filteredGuests = query.trim() === ''
-    ? [guests[0]] // Match mockup default showing first result or demo search
-    : guests.filter((g) =>
-        g.name.toLowerCase().includes(query.toLowerCase()) ||
-        g.code.toLowerCase().includes(query.toLowerCase())
-      );
+  React.useEffect(() => {
+    setEventId(new URLSearchParams(window.location.search).get('eventId') || '');
+  }, []);
+
+  React.useEffect(() => {
+    if (!eventId) return;
+    const handle = window.setTimeout(() => {
+      searchGateGuests(eventId, query)
+        .then((rows) => {
+          setGuests(rows);
+          setSearched(true);
+        })
+        .catch(() => {
+          setGuests([]);
+          setSearched(true);
+        });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [eventId, query]);
 
   return (
     <GateMobileShell showHeader={false} activeTab="checkin">
@@ -51,8 +65,8 @@ export default function GateStaffSearchGuestPage() {
         </div>
 
         {/* Found Guest Card matching mockup 08 */}
-        {filteredGuests.length > 0 ? (
-          filteredGuests.map((guest) => (
+        {searched && guests.length > 0 ? (
+          guests.map((guest) => (
             <div
               key={guest.id}
               className="bg-white rounded-3xl p-5 border border-[#EAE5DC] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-3.5"
@@ -92,7 +106,10 @@ export default function GateStaffSearchGuestPage() {
               {/* View Guest CTA Button */}
               <button
                 type="button"
-                onClick={() => router.push(`/gate-staff/verify?status=${guest.checkInStatus === 'Checked In' ? 'already_checked_in' : 'valid'}`)}
+                onClick={() => {
+                  sessionStorage.setItem('gate-last-guest', JSON.stringify(guest));
+                  router.push(`/gate-staff/verify?status=${guest.checkInStatus === 'Checked In' ? 'already_checked_in' : 'valid'}`);
+                }}
                 className="w-full py-3.5 px-4 bg-[#211612] hover:bg-[#34241D] text-white rounded-2xl text-sm font-medium transition-colors shadow-xs active:scale-[0.99] mt-2"
               >
                 View Guest

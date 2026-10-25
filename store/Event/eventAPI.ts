@@ -17,6 +17,7 @@ import {
   UpdateGuestPayload,
   GetEventSeatingResponse,
   AssignSeatingPayload,
+  CreateSeatingPayload,
   AssignSeatingResponse,
   GetCheckInMonitorResponse,
   ResolveFlagPayload,
@@ -206,6 +207,38 @@ export const eventAPI = baseAPI.injectEndpoints({
     // -------------------------------------------------------------------------
     // 3. Seating Protocol
     // -------------------------------------------------------------------------
+    createEventSeating: build.mutation<
+      { message?: string; data?: { id: string; name: string } },
+      { eventId: string; data: CreateSeatingPayload }
+    >({
+      query: ({ eventId, data }) => ({
+        url: `/individual/events/${eventId}/seating`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Event', 'Attendee'],
+    }),
+
+    updateEventSeating: build.mutation<
+      { message?: string },
+      { eventId: string; zoneId: string; data: CreateSeatingPayload }
+    >({
+      query: ({ eventId, zoneId, data }) => ({
+        url: `/individual/events/${eventId}/seating/${zoneId}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['Event', 'Attendee'],
+    }),
+
+    deleteEventSeating: build.mutation<{ message?: string }, { eventId: string; zoneId: string }>({
+      query: ({ eventId, zoneId }) => ({
+        url: `/individual/events/${eventId}/seating/${zoneId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Event', 'Attendee'],
+    }),
+
     getEventSeating: build.query<GetEventSeatingResponse, string>({
       query: (eventId) => ({
         url: `/individual/events/${eventId}/seating`,
@@ -274,6 +307,9 @@ export const {
   useDeleteGuestMutation,
   useSendGuestInviteMutation,
   useSendAllInvitesMutation,
+  useCreateEventSeatingMutation,
+  useUpdateEventSeatingMutation,
+  useDeleteEventSeatingMutation,
   useGetEventSeatingQuery,
   useAssignGuestSeatingMutation,
   useGetEventCheckInMonitorQuery,

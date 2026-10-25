@@ -3,9 +3,12 @@
 import * as React from 'react';
 import {
   Armchair,
-  Plus,
   ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
+  Pencil,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import type { OrganizerKind } from '@/lib/organizer';
 import { Button } from '@/components/ui/button';
@@ -18,27 +21,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { getEventSeatingBlueprint } from '@/lib/api/individual-events';
+import { toast } from 'react-toastify';
+import { SearchField } from '@/components/shared/SearchField';
+import { TablePagination } from '@/components/shared/TablePagination';
+import { TABLE_TYPES, tableAcceptsGuest, type TableType } from './shared/guest-options';
+import {
+  useAssignGuestSeatingMutation,
+  useCreateEventSeatingMutation,
+  useDeleteEventSeatingMutation,
+  useGetEventSeatingQuery,
+  useUpdateEventSeatingMutation,
+} from '@/store/Event/eventAPI';
 
 interface SeatAllocation {
   id: string;
   guestName: string;
   phone: string;
   partySize: number;
+  guestType: string;
   seatCode: string;
 }
 
-type GuestGroup =
-  | 'Standard'
-  | 'VIP'
-  | 'Family & Friends'
-  | 'Speakers & Partners'
-  | 'General';
+type GuestGroup = TableType;
+
+function displayTableType(tag: string): GuestGroup {
+  if (tag === 'Standard' || tag === 'Preserved') return 'Preserved';
+  return (TABLE_TYPES as readonly string[]).includes(tag) ? (tag as GuestGroup) : 'General';
+}
 
 interface SeatingTable {
   id: string;
+  zoneId: string;
+  tableNumber: number;
   name: string;
-  tag: 'VIP' | 'Family & Friends' | 'Speakers & Partners' | 'General' | 'Standard';
+  tag: string;
   capacity: number;
   assignedCount: number;
   location: string;
@@ -46,134 +62,206 @@ interface SeatingTable {
   seats: SeatAllocation[];
 }
 
+function mapTables(zones: Array<Record<string, any>>): SeatingTable[] {
+  const tables: SeatingTable[] = [];
+  for (const zone of zones) {
+    const zoneTables = Array.isArray(zone.tables) && zone.tables.length
+      ? zone.tables
+      : [{ tableNumber: 1, seats: [], capacity: zone.seatPerTable, occupied: 0 }];
+    for (const table of zoneTables) {
+      tables.push({
+        id: zone.tableCount > 1 ? `${zone.id}:${table.tableNumber}` : zone.id,
+        zoneId: zone.id,
+        tableNumber: table.tableNumber || 1,
+        name: zone.tableCount > 1 ? `${zone.name} ${table.tableNumber}` : zone.name,
+        tag: zone.guestGroup || 'General',
+        capacity: table.capacity || zone.seatPerTable || zone.totalCapacity || 0,
+        assignedCount: table.occupied || 0,
+        location: zone.location || '',
+        reservedSeats: zone.reservedSeats || 0,
+        seats: (table.seats || []).map((seat: Record<string, any>) => ({
+          id: seat.attendeeId,
+          guestName: seat.guestName,
+          phone: seat.phone || '',
+          partySize: seat.partySize || 1,
+          guestType: seat.tier || 'General',
+          seatCode: seat.seatCode || `T${table.tableNumber}-${String(seat.seatNumber || 1).padStart(2, '0')}`,
+        })),
+      });
+    }
+  }
+  return tables;
+}
+
 export function EventSeatingWorkspace({ organizer, eventId }: { organizer: OrganizerKind; eventId: string }) {
+  const { data, isLoading, isError, refetch } = useGetEventSeatingQuery(eventId);
+  const [createSeating, { isLoading: creating }] = useCreateEventSeatingMutation();
+  const [updateSeating, { isLoading: updating }] = useUpdateEventSeatingMutation();
+  const [deleteSeating] = useDeleteEventSeatingMutation();
+  const [assignSeating] = useAssignGuestSeatingMutation();
+  const seating = data?.data?.zones ? data.data : (data as { zones?: unknown[] } | undefined);
+  const tables = React.useMemo(() => mapTables((seating?.zones ?? []) as Array<Record<string, any>>), [seating]);
+  const unassignedGuests = (seating as { unassignedGuests?: Array<Record<string, any>> } | undefined)?.unassignedGuests ?? [];
+
   const [activeTab, setActiveTab] = React.useState<'setup' | 'review'>('setup');
   const [isAddSeatingOpen, setIsAddSeatingOpen] = React.useState(false);
-  const [expandedTableId, setExpandedTableId] = React.useState<string | null>('table-1');
+  const [expandedTableId, setExpandedTableId] = React.useState<string | null>(null);
 
   // Form State for Add Seating Modal
   const [seatingName, setSeatingName] = React.useState('');
-  const [guestGroup, setGuestGroup] = React.useState<GuestGroup>('Standard');
+  const [guestGroup, setGuestGroup] = React.useState<GuestGroup>('General');
   const [zone, setZone] = React.useState('');
   const [totalCapacity, setTotalCapacity] = React.useState('15');
   const [reservedSeats, setReservedSeats] = React.useState('0');
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState('');
+  const [typeFilter, setTypeFilter] = React.useState('all');
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
+  const [sortKey, setSortKey] = React.useState<'capacity' | 'reserved' | 'available' | null>(null);
+  const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc');
+  const saving = creating || updating;
 
-  // Load live seating blueprint from API with fallback
   React.useEffect(() => {
-    let mounted = true;
-    async function loadSeating() {
-      try {
-        const res = await getEventSeatingBlueprint(eventId);
-        if (mounted && res && res.zones && res.zones.length > 0) {
-          // If live zones mapped, keep synchronized
-        }
-      } catch {}
-    }
-    loadSeating();
-    return () => {
-      mounted = false;
-    };
-  }, [eventId]);
-
-  // State: Tables
-  const [tables, setTables] = React.useState<SeatingTable[]>([
-    {
-      id: 'table-1',
-      name: 'Table - 01',
-      tag: 'VIP',
-      capacity: 15,
-      assignedCount: 14,
-      location: 'Main Hall A',
-      reservedSeats: 1,
-      seats: [
-        { id: 's-1', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 1, seatCode: 'T1-VIP-01' },
-        { id: 's-2', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 2, seatCode: 'T1-VIP-01, T1-VIP-02' },
-        { id: 's-3', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 4, seatCode: 'T1-VIP-03, T1-VIP-04, T1-VIP-05, T1-VIP-06' },
-        { id: 's-4', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 3, seatCode: 'T1-VIP-07, T1-VIP-08, T1-VIP-09' },
-        { id: 's-5', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 1, seatCode: 'T1-VIP-10' },
-        { id: 's-6', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 2, seatCode: 'T1-VIP-11, T1-VIP-12' },
-        { id: 's-7', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 1, seatCode: 'T1-VIP-13' },
-        { id: 's-8', guestName: 'Chief & Mrs. Babatunde Alabi', phone: '+234 802 345 6789', partySize: 1, seatCode: 'T1-VIP-14' },
-      ],
-    },
-    { id: 'table-2', name: 'Table - 02', tag: 'VIP', capacity: 15, assignedCount: 14, location: 'Main Hall A', reservedSeats: 0, seats: [] },
-    { id: 'table-3', name: 'Table - 03', tag: 'Family & Friends', capacity: 15, assignedCount: 14, location: 'Center Pavilion', reservedSeats: 0, seats: [] },
-    { id: 'table-4', name: 'Table - 04', tag: 'Family & Friends', capacity: 15, assignedCount: 14, location: 'Center Pavilion', reservedSeats: 0, seats: [] },
-    { id: 'table-5', name: 'Table - 05', tag: 'Family & Friends', capacity: 15, assignedCount: 14, location: 'Center Pavilion', reservedSeats: 0, seats: [] },
-    { id: 'table-6', name: 'Table - 06', tag: 'Speakers & Partners', capacity: 15, assignedCount: 14, location: 'Stage Left', reservedSeats: 0, seats: [] },
-    { id: 'table-7', name: 'Table - 07', tag: 'General', capacity: 15, assignedCount: 14, location: 'Main Hall', reservedSeats: 0, seats: [] },
-    { id: 'table-8', name: 'Table - 08', tag: 'Speakers & Partners', capacity: 15, assignedCount: 14, location: 'Stage Right', reservedSeats: 0, seats: [] },
-    { id: 'table-9', name: 'Table - 09', tag: 'General', capacity: 15, assignedCount: 14, location: 'Main Hall', reservedSeats: 0, seats: [] },
-    { id: 'table-10', name: 'Table - 10', tag: 'General', capacity: 15, assignedCount: 14, location: 'Main Hall', reservedSeats: 0, seats: [] },
-  ]);
-
-  // Unassigned Guests list
-  const [unassignedGuests, setUnassignedGuests] = React.useState([
-    { id: 'u-1', name: 'David Johnson', group: 'Family & Friends' },
-    { id: 'u-2', name: 'David Johnson', group: 'Family & Friends' },
-  ]);
+    if (!expandedTableId && tables[0]) setExpandedTableId(tables[0].id);
+  }, [expandedTableId, tables]);
 
   const totalCapacitySum = tables.reduce((acc, t) => acc + t.capacity, 0);
-  const totalAssignedSum = tables.reduce((acc, t) => acc + t.assignedCount, 0);
-  const totalUnassignedCount = unassignedGuests.length;
+  const totalAssignedGuests = tables.reduce((acc, t) => acc + t.seats.length, 0);
+  const totalReservedSeats = tables.reduce((acc, t) => acc + t.reservedSeats, 0);
+  const filteredTables = React.useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const rows = tables.filter((table) => {
+      if (typeFilter !== 'all' && displayTableType(table.tag) !== typeFilter) return false;
+      if (!query) return true;
+      return table.name.toLowerCase().includes(query) || table.location.toLowerCase().includes(query);
+    });
+    if (sortKey) {
+      rows.sort((a, b) => {
+        const left = sortKey === 'capacity' ? a.capacity : sortKey === 'reserved' ? a.reservedSeats : Math.max(0, a.capacity - a.reservedSeats - a.assignedCount);
+        const right = sortKey === 'capacity' ? b.capacity : sortKey === 'reserved' ? b.reservedSeats : Math.max(0, b.capacity - b.reservedSeats - b.assignedCount);
+        return sortDir === 'asc' ? left - right : right - left;
+      });
+    }
+    return rows;
+  }, [tables, search, typeFilter, sortKey, sortDir]);
+  const pageRows = filteredTables.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleCreateSeating = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!seatingName) return;
-
-    const cap = parseInt(totalCapacity) || 10;
-    const res = parseInt(reservedSeats) || 0;
-
-    const newTable: SeatingTable = {
-      id: `table-${Date.now()}`,
-      name: seatingName,
-      tag: guestGroup,
-      capacity: cap,
-      assignedCount: 0,
-      location: zone || 'Main Hall',
-      reservedSeats: res,
-      seats: [],
-    };
-
-    setTables((prev) => [...prev, newTable]);
-    setIsAddSeatingOpen(false);
-    setSeatingName('');
-    setZone('');
+  const placeGuest = async (guestId: string, tableId: string) => {
+    const table = tables.find((item) => item.id === tableId);
+    if (!table) return;
+    try {
+      await assignSeating({
+        eventId,
+        data: { attendeeId: guestId, zoneId: table.zoneId, tableNumber: table.tableNumber },
+      }).unwrap();
+      toast.success(`Seated at ${table.name}.`);
+    } catch (error) {
+      const message = error && typeof error === 'object' && 'data' in error
+        ? String((error as { data?: { message?: string } }).data?.message || '')
+        : '';
+      toast.error(message || 'That table does not have enough open seats.');
+    }
   };
 
-  const handleAssignUnassigned = (guestId: string, tableId: string) => {
-    const guest = unassignedGuests.find((g) => g.id === guestId);
-    if (!guest) return;
+  const handleCreateSeating = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!seatingName.trim()) return;
+    try {
+      const payload = {
+        name: seatingName.trim(),
+        guestGroup,
+        location: zone,
+        capacity: parseInt(totalCapacity, 10) || 10,
+        reservedSeats: parseInt(reservedSeats, 10) || 0,
+      };
+      if (editingId) {
+        await updateSeating({ eventId, zoneId: editingId, data: payload }).unwrap();
+      } else {
+        await createSeating({ eventId, data: payload }).unwrap();
+      }
+      setIsAddSeatingOpen(false);
+      setEditingId(null);
+      setSeatingName('');
+      setZone('');
+      setActiveTab('setup');
+      toast.success(editingId ? `${payload.name} updated.` : `${payload.name} added.`);
+    } catch {
+      toast.error('The table could not be saved.');
+    }
+  };
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id === tableId && t.assignedCount < t.capacity) {
-          const seatNum = String(t.seats.length + 1).padStart(2, '0');
-          return {
-            ...t,
-            assignedCount: t.assignedCount + 1,
-            seats: [
-              ...t.seats,
-              {
-                id: `seat-${Date.now()}`,
-                guestName: guest.name,
-                phone: '+234 801 000 0000',
-                partySize: 1,
-                seatCode: `${t.name.replace(' ', '')}-${seatNum}`,
-              },
-            ],
-          };
-        }
-        return t;
-      })
-    );
+  const openAdd = () => {
+    setEditingId(null);
+    setSeatingName('');
+    setGuestGroup('General');
+    setZone('');
+    setTotalCapacity('15');
+    setReservedSeats('0');
+    setIsAddSeatingOpen(true);
+  };
 
-    setUnassignedGuests((prev) => prev.filter((g) => g.id !== guestId));
+  const openEdit = (table: SeatingTable) => {
+    setEditingId(table.zoneId);
+    setSeatingName(table.name);
+    setGuestGroup(displayTableType(table.tag));
+    setZone(table.location);
+    setTotalCapacity(String(table.capacity));
+    setReservedSeats(String(table.reservedSeats));
+    setIsAddSeatingOpen(true);
+  };
+
+  const removeTable = async (table: SeatingTable) => {
+    if (!window.confirm(`Remove ${table.name}? Guests at this table go back to unassigned.`)) return;
+    try {
+      await deleteSeating({ eventId, zoneId: table.zoneId }).unwrap();
+    } catch {
+      toast.error('The table could not be removed.');
+    }
+  };
+
+  const changeGroup = async (table: SeatingTable, nextGroup: string) => {
+    try {
+      const result = await updateSeating({
+        eventId,
+        zoneId: table.zoneId,
+        data: {
+          name: table.name,
+          guestGroup: nextGroup,
+          location: table.location,
+          capacity: table.capacity,
+          reservedSeats: table.reservedSeats,
+        },
+      }).unwrap() as { data?: { releasedGuests?: number } };
+      const released = result?.data?.releasedGuests ?? 0;
+      if (released > 0) {
+        const rule = nextGroup === 'Preserved' ? 'any guest' : `${nextGroup} guests only`;
+        toast.info(
+          `${released} guest${released === 1 ? '' : 's'} moved back to unassigned. This table now seats ${rule}.`,
+        );
+      }
+    } catch {
+      toast.error('The guest group could not be updated.');
+    }
+  };
+
+  const toggleSort = (key: 'capacity' | 'reserved' | 'available') => {
+    setSortDir((current) => (sortKey === key && current === 'asc' ? 'desc' : 'asc'));
+    setSortKey(key);
   };
 
   return (
       <div className="w-full space-y-6">
         <EventBreadcrumb organizer={organizer} eventId={eventId} current="Seating & Protocol" />
+        {isLoading && <p className="text-sm text-[#736B66]">Loading seating…</p>}
+        {isError && (
+          <div className="rounded-2xl border border-[#E8C4BA] bg-[#FBEDE9] p-4 text-sm text-[#7A2E21]">
+            Seating could not be loaded.
+            <button type="button" onClick={() => refetch()} className="ml-2 underline">
+              Try again
+            </button>
+          </div>
+        )}
         <div>
           <h1 className="font-serif text-3xl md:text-4xl font-normal text-[#1F140E] dark:text-[#FBF8F5] tracking-tight">
             Seating & Protocol
@@ -241,23 +329,23 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
               </div>
               <div className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs">
                 <span className="font-serif text-3xl md:text-4xl font-normal text-[#8C4B24]">
-                  {totalAssignedSum}
+                  {totalAssignedGuests}
                 </span>
                 <span className="text-xs font-medium text-[#736B66] dark:text-muted-foreground mt-2 block">
-                  Assigned
+                  Assigned Guests
                 </span>
               </div>
               <div className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs">
                 <span className="font-serif text-3xl md:text-4xl font-normal text-[#8C4B24]">
-                  {totalUnassignedCount}
+                  {totalReservedSeats}
                 </span>
                 <span className="text-xs font-medium text-[#736B66] dark:text-muted-foreground mt-2 block">
-                  Unassigned
+                  Reserved Seats
                 </span>
               </div>
             </div>
 
-            {/* Empty State / Add Seating Card matching Figma */}
+            {!isLoading && tables.length === 0 ? (
             <div className="rounded-3xl border border-[#EBE3D9] dark:border-border/80 bg-white/70 dark:bg-card/50 p-10 md:p-14 text-center shadow-xs flex flex-col items-center justify-center space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-[#FBF2EC] text-[#8C4B24] flex items-center justify-center shadow-xs">
                 <Armchair className="w-6 h-6 text-[#8C4B24]" />
@@ -271,14 +359,110 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                 </p>
               </div>
 
-              <Button
-                onClick={() => setIsAddSeatingOpen(true)}
+                <Button
+                disabled={saving}
+                onClick={openAdd}
                 className="bg-[#241710] hover:bg-[#3D2518] text-white px-6 py-2.5 rounded-xl font-medium text-xs flex items-center gap-2 shadow-xs transition-colors mt-2"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Seating</span>
               </Button>
             </div>
+            ) : (
+              <div className="rounded-2xl border border-[#EBE3D9] bg-white p-3 shadow-xs dark:border-border dark:bg-card">
+                <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SearchField value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search" />
+                    <select
+                      aria-label="Guest type"
+                      value={typeFilter}
+                      onChange={(event) => { setTypeFilter(event.target.value); setPage(1); }}
+                      className="h-8 rounded-lg border border-[#E8E3DD] bg-white px-2 text-xs text-[#3F342D]"
+                    >
+                      <option value="all">Guest Type</option>
+                      {TABLE_TYPES.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button onClick={openAdd} className="h-8 rounded-lg bg-[#241710] px-3 text-xs text-white hover:bg-[#3D2518]">
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add Seating
+                  </Button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-xs">
+                    <thead className="bg-[#F3F1EE] text-[#3F342D]">
+                      <tr>
+                        <th className="px-3 py-2.5 font-medium">Guest</th>
+                        <th className="px-3 py-2.5 font-medium">Assigned Guest Type</th>
+                        {([
+                          ['capacity', 'Number of Seat'],
+                          ['reserved', 'Reserved'],
+                          ['available', 'Available'],
+                        ] as const).map(([key, label]) => (
+                          <th key={key} className="px-3 py-2.5 font-medium">
+                            <button type="button" onClick={() => toggleSort(key)} className="inline-flex items-center gap-1">
+                              {label}
+                              <ChevronsUpDown className="size-3" />
+                            </button>
+                          </th>
+                        ))}
+                        <th className="px-3 py-2.5 font-medium">Location/Zone</th>
+                        <th className="px-3 py-2.5 text-center font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EFEAE4]">
+                      {pageRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-8 text-center text-[#736B66]">No tables match this search.</td>
+                        </tr>
+                      ) : pageRows.map((table) => {
+                        const available = Math.max(0, table.capacity - table.reservedSeats - table.assignedCount);
+                        return (
+                          <tr key={table.id}>
+                            <td className="px-3 py-2.5 text-[13px] text-[#261710]">{table.name}</td>
+                            <td className="px-3 py-2.5">
+                              <select
+                                aria-label={`Guest type for ${table.name}`}
+                                value={displayTableType(table.tag)}
+                                onChange={(event) => void changeGroup(table, event.target.value)}
+                                className="h-7 rounded-md border border-[#F1DFCB] bg-[#FFF8F0] px-2 text-xs"
+                              >
+                                {TABLE_TYPES.map((type) => (
+                                  <option key={type} value={type}>{type}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-3 py-2.5">{String(table.capacity).padStart(2, '0')}</td>
+                            <td className="px-3 py-2.5">{String(table.reservedSeats).padStart(2, '0')}</td>
+                            <td className="px-3 py-2.5">{String(available).padStart(2, '0')}</td>
+                            <td className="px-3 py-2.5">{table.location || '—'}</td>
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center justify-center gap-2">
+                                <button type="button" aria-label={`Edit ${table.name}`} onClick={() => openEdit(table)} className="rounded p-1 text-[#7A3B18] hover:bg-[#F7EFE6]">
+                                  <Pencil className="size-3.5" />
+                                </button>
+                                <button type="button" aria-label={`Delete ${table.name}`} onClick={() => void removeTable(table)} className="rounded p-1 text-[#B33927] hover:bg-[#FBE4E1]">
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <TablePagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={filteredTables.length}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -294,12 +478,20 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
               </p>
             </div>
 
+            {tables.length === 0 ? (
+              <p className="rounded-2xl border border-[#EBE3D9] bg-white p-8 text-center text-sm text-[#736B66]">
+                No tables yet. Add seating first, then assign guests here.
+              </p>
+            ) : null}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Left Column: Tables List (8 cols) */}
               <div className="lg:col-span-8 space-y-3">
                 {tables.map((tbl) => {
                   const isExpanded = expandedTableId === tbl.id;
-                  const availableCount = Math.max(0, tbl.capacity - tbl.assignedCount);
+                  const availableCount = Math.max(0, tbl.capacity - tbl.reservedSeats - tbl.assignedCount);
+                  const waitingGuests = unassignedGuests.filter((guest) =>
+                    tableAcceptsGuest(tbl.tag, String(guest.type || 'General')),
+                  );
 
                   return (
                     <div
@@ -320,10 +512,12 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                                 ? 'bg-[#FEF3C7] text-[#92400E]'
                                 : tbl.tag === 'Speakers & Partners'
                                 ? 'bg-[#E0F2FE] text-[#0369A1]'
+                                : displayTableType(tbl.tag) === 'Preserved'
+                                ? 'bg-[#EDE9FE] text-[#5B21B6]'
                                 : 'bg-[#F3F4F6] text-[#374151]'
                             }`}
                           >
-                            {tbl.tag}
+                            {displayTableType(tbl.tag)}
                           </span>
                         </div>
 
@@ -337,18 +531,33 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                             </span>
                           </div>
 
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              // Open quick add guest
-                              setIsAddSeatingOpen(true);
+                          <select
+                            aria-label={`Add a guest to ${tbl.name}`}
+                            value=""
+                            onChange={(e) => {
+                              const guestId = e.target.value;
+                              e.target.value = '';
+                              if (!guestId) return;
+                              setExpandedTableId(tbl.id);
+                              void placeGuest(guestId, tbl.id);
                             }}
-                            className="h-8 rounded-xl text-xs gap-1.5 border-[#DED7CC] text-[#241710]"
+                            className="h-8 rounded-xl border border-[#DED7CC] bg-white px-2.5 text-xs text-[#241710] dark:bg-card"
                           >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Guest</span>
-                          </Button>
+                            <option value="">+ Add Guest</option>
+                            {waitingGuests.length === 0 ? (
+                              <option value="" disabled>
+                                {unassignedGuests.length === 0
+                                  ? 'No unassigned guests'
+                                  : `No ${displayTableType(tbl.tag)} guests waiting`}
+                              </option>
+                            ) : (
+                              waitingGuests.map((guest) => (
+                                <option key={guest.id} value={guest.id}>
+                                  {guest.name} · {guest.partySize || 1} {Number(guest.partySize) === 1 ? 'seat' : 'seats'}
+                                </option>
+                              ))
+                            )}
+                          </select>
 
                           <button
                             type="button"
@@ -407,17 +616,18 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                                         className="text-[11px] border rounded-lg px-2 py-1 bg-white dark:bg-card text-foreground"
                                         defaultValue="move"
                                         onChange={(e) => {
-                                          if (e.target.value !== 'move') {
-                                            // Handle move
+                                          if (e.target.value && e.target.value !== 'move') {
+                                            void placeGuest(seat.id, e.target.value);
+                                            e.target.value = 'move';
                                           }
                                         }}
                                       >
                                         <option value="move">Move to... ⌄</option>
                                         {tables
-                                          .filter((t) => t.id !== tbl.id)
+                                          .filter((t) => t.id !== tbl.id && tableAcceptsGuest(t.tag, seat.guestType))
                                           .map((t) => (
                                             <option key={t.id} value={t.id}>
-                                              {t.name}
+                                              {t.name} · {displayTableType(t.tag)}
                                             </option>
                                           ))}
                                       </select>
@@ -455,14 +665,15 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                           {g.name}
                         </div>
                         <div className="text-[11px] text-[#736B66]">
-                          {g.group}
+                          {g.type || 'General'} · {g.partySize || 1} {g.partySize === 1 ? 'seat' : 'seats'}
                         </div>
                       </div>
 
                       <select
                         onChange={(e) => {
                           if (e.target.value) {
-                            handleAssignUnassigned(g.id, e.target.value);
+                            void placeGuest(g.id, e.target.value);
+                            e.target.value = '';
                           }
                         }}
                         className="bg-[#15803D] hover:bg-[#166534] text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg cursor-pointer outline-none"
@@ -471,9 +682,16 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                         <option value="" disabled>
                           Assign Seating ⌄
                         </option>
-                        {tables.map((t) => (
+                        {tables.filter((t) => tableAcceptsGuest(t.tag, g.type || 'General')).length === 0 ? (
+                          <option value="" disabled className="text-foreground bg-white">
+                            No {g.type || 'General'} table
+                          </option>
+                        ) : null}
+                        {tables
+                          .filter((t) => tableAcceptsGuest(t.tag, g.type || 'General'))
+                          .map((t) => (
                           <option key={t.id} value={t.id} className="text-foreground bg-white">
-                            {t.name} ({t.capacity - t.assignedCount} left)
+                            {t.name} · {displayTableType(t.tag)} ({Math.max(0, t.capacity - t.reservedSeats - t.assignedCount)} left)
                           </option>
                         ))}
                       </select>
@@ -496,7 +714,7 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
           <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-2">
               <DialogTitle className="font-serif text-xl font-bold text-[#261710] dark:text-foreground">
-                Add Seating
+                {editingId ? 'Edit Seating' : 'Add Seating'}
               </DialogTitle>
             </DialogHeader>
 
@@ -526,11 +744,9 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                     onChange={(e) => setGuestGroup(e.target.value as GuestGroup)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-[#FAF8F5]/60 text-foreground focus:outline-none"
                   >
-                    <option value="Standard">Standard</option>
-                    <option value="VIP">VIP</option>
-                    <option value="Family & Friends">Family & Friends</option>
-                    <option value="Speakers & Partners">Speakers & Partners</option>
-                    <option value="General">General</option>
+                    {TABLE_TYPES.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -579,9 +795,10 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
               {/* Submit Button matching Figma */}
               <Button
                 type="submit"
+                disabled={saving}
                 className="w-full bg-[#6E3B1C] hover:bg-[#5C3117] text-white font-semibold text-xs py-3 rounded-xl transition-colors shadow-xs mt-2"
               >
-                Save Seating
+                {saving ? 'Saving…' : 'Save Seating'}
               </Button>
             </form>
           </DialogContent>

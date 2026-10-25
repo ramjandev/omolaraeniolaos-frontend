@@ -11,7 +11,7 @@ export const metadata = {
 };
 
 interface PageProps {
-  searchParams?: Promise<{ step?: string }>;
+  searchParams?: Promise<{ step?: string; new?: string }>;
 }
 
 export default async function CreateEventPage({ searchParams }: PageProps) {
@@ -28,13 +28,15 @@ export default async function CreateEventPage({ searchParams }: PageProps) {
   const initialStep: StepKey | undefined =
     step && validSteps.includes(step as StepKey) ? (step as StepKey) : undefined;
 
+  const startNew = resolved?.new === '1';
+
   return (
     <AppShell
       currentRole="organizer_individual"
       title="Event Setup"
       subtitle="Follow the step-by-step setup to configure your event details, guest roster, and experiences."
     >
-      <IndividualEventWorkspace initialStep={initialStep} />
+      <IndividualEventWorkspace initialStep={initialStep} startNew={startNew} />
     </AppShell>
   );
 }

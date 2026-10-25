@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getGuestPass, type GuestPass } from '@/lib/api/platform';
 import {
   ArrowLeft,
   Share2,
@@ -20,15 +21,50 @@ import {
 
 export default function GuestPassPage() {
   const router = useRouter();
+  const [pass, setPass] = React.useState<GuestPass | null>(null);
   const [downloadSuccess, setDownloadSuccess] = React.useState(false);
   const [calSuccess, setCalSuccess] = React.useState(false);
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    getGuestPass({
+      attendeeId: params.get('attendeeId'),
+      eventId: params.get('eventId'),
+      qrCode: params.get('qr'),
+    })
+      .then(setPass)
+      .catch(() => setPass(null));
+  }, []);
+
+  const guestLink = pass
+    ? `/guest?attendeeId=${pass.attendeeId}&eventId=${pass.eventId}&qr=${encodeURIComponent(pass.qrCode)}`
+    : '/guest';
+  const qrImage = pass
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(pass.qrCode)}`
+    : '';
+  const when = pass?.event?.startDate
+    ? new Date(pass.event.startDate).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'Date to be confirmed';
+  const place = [pass?.event?.city, pass?.event?.country].filter(Boolean).join(', ') || 'Venue';
+
   const handleSavePass = () => {
+    if (qrImage) window.open(qrImage, '_blank', 'noopener,noreferrer');
     setDownloadSuccess(true);
     setTimeout(() => setDownloadSuccess(false), 2500);
   };
 
   const handleAddToCalendar = () => {
+    const start = pass?.event?.startDate ? new Date(pass.event.startDate) : null;
+    const end = pass?.event?.endDate ? new Date(pass.event.endDate) : start ? new Date(start.getTime() + 2 * 60 * 60 * 1000) : null;
+    const stamp = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    if (start && end) {
+      const url = new URL('https://calendar.google.com/calendar/render');
+      url.searchParams.set('action', 'TEMPLATE');
+      url.searchParams.set('text', pass?.event?.title || 'Event');
+      url.searchParams.set('dates', `${stamp(start)}/${stamp(end)}`);
+      url.searchParams.set('location', [pass?.event?.venueName, pass?.event?.address, pass?.event?.city].filter(Boolean).join(', '));
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    }
     setCalSuccess(true);
     setTimeout(() => setCalSuccess(false), 2500);
   };
@@ -45,7 +81,7 @@ export default function GuestPassPage() {
         {/* Top Navigation Bar */}
         <div className="relative z-10 px-5 pt-4 pb-3 flex items-center justify-between">
           <button
-            onClick={() => router.push('/guest')}
+            onClick={() => router.push(guestLink)}
             aria-label="Back to Concierge Chat"
             className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center text-white backdrop-blur-md"
           >
@@ -57,7 +93,7 @@ export default function GuestPassPage() {
               Digital Access Pass
             </span>
             <span className="text-xs font-serif text-[#F0EDE6]/80">
-              The Grand Royal Gala
+              {pass?.event?.title || 'Your event'}
             </span>
           </div>
 
@@ -66,7 +102,7 @@ export default function GuestPassPage() {
               if (navigator.share) {
                 navigator.share({
                   title: 'McEniesVite VIP Digital Pass',
-                  text: 'Chief Adeleke Adebayo - Table 01 Royal & Presidential Suite',
+                  text: `${pass?.fullName || 'Guest'} — ${pass?.event?.title || 'Event'}`,
                   url: window.location.href,
                 }).catch(() => {});
               }
@@ -98,18 +134,18 @@ export default function GuestPassPage() {
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-semibold">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>RSVP Confirmed</span>
+                  <span>{pass?.rsvpStatus === 'CONFIRMED' ? 'RSVP Confirmed' : pass?.rsvpStatus === 'DECLINED' ? 'Declined' : 'Invitation'}</span>
                 </div>
               </div>
 
               <div className="space-y-1">
                 <h1 className="font-serif text-2xl font-bold tracking-tight text-[#FFF8ED] leading-tight">
-                  Chief Adeleke Adebayo
+                  {pass?.fullName || 'Guest'}
                 </h1>
                 <p className="text-xs text-[#E8D4C0] font-light flex items-center gap-2">
-                  <span>VIP Dignitary & Special Guest</span>
+                  <span>{pass?.guestType || 'Guest'}</span>
                   <span className="w-1 h-1 rounded-full bg-[#E5A84D]" />
-                  <span>Party of 2</span>
+                  <span>Party of {pass?.partySize || 1}</span>
                 </p>
               </div>
             </div>
@@ -120,13 +156,9 @@ export default function GuestPassPage() {
                 {/* Embedded QR code */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/images/guest/Frame 68.png"
-                  alt="Chief Adeleke Adebayo VIP QR Code"
+                  src={qrImage || '/images/guest/Frame 68.png'}
+                  alt={`${pass?.fullName || 'Guest'} QR code`}
                   className="w-48 h-48 object-contain rounded-lg"
-                  onError={(e) => {
-                    // Fallback visual if direct frame image renders as pass card
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
                 />
                 
                 {/* Fallback SVG QR render for crisp visual presentation */}
@@ -143,7 +175,7 @@ export default function GuestPassPage() {
                   Credential Security Token
                 </span>
                 <p className="font-mono text-sm tracking-wider font-semibold text-[#E5A84D] select-all">
-                  MCV-2026-NGA-98421
+                  {pass?.qrCode || 'Pending'}
                 </p>
               </div>
             </div>
@@ -156,23 +188,26 @@ export default function GuestPassPage() {
                   <span>Table Assigned</span>
                 </div>
                 <div className="font-semibold text-sm text-white leading-tight">
-                  Table 01
+                  {pass?.tableName || 'Not assigned'}
                 </div>
+                {pass?.seatLabel && (
+                  <span className="text-[11px] text-[#E5A84D] block mt-0.5">{pass.seatLabel}</span>
+                )}
                 <span className="text-[11px] text-[#C99C6A] block mt-0.5">
-                  Royal & Presidential Suite
+                  {pass?.guestType || 'General'}
                 </span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-[#28211C] border border-[#3A2F28]">
                 <div className="flex items-center gap-1.5 text-xs text-[#A8988B] mb-1">
                   <MapPin className="w-3.5 h-3.5 text-[#E5A84D]" />
-                  <span>Designated Gate</span>
+                  <span>Venue</span>
                 </div>
                 <div className="font-semibold text-sm text-white leading-tight">
-                  Gate 2 VIP Entrance
+                  {pass?.event?.venueName || 'Main entrance'}
                 </div>
                 <span className="text-[11px] text-[#A8988B] block mt-0.5">
-                  Monarch Event Centre
+                  {pass?.event?.city || 'Show this pass at the gate'}
                 </span>
               </div>
             </div>
@@ -189,9 +224,9 @@ export default function GuestPassPage() {
               <div className="flex items-center justify-between text-xs text-[#8F7F72]">
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-[#E5A84D]" />
-                  <span>Sat, 24 Oct 2026 · 14:00 Prompt</span>
+                  <span>{when}</span>
                 </div>
-                <span className="text-white/80 font-medium">Lagos, NG</span>
+                <span className="text-white/80 font-medium">{place}</span>
               </div>
 
               <div className="flex items-start gap-2 p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-[#C5B8AC]">
@@ -243,7 +278,7 @@ export default function GuestPassPage() {
           {/* Return to Concierge Chat Link */}
           <div className="pt-2">
             <Link
-              href="/guest"
+              href={guestLink}
               className="w-full py-3 px-4 rounded-2xl bg-[#251F1B] border border-[#3E322A] text-xs text-[#D8B485] font-medium flex items-center justify-between hover:bg-[#2F2621] transition-all"
             >
               <div className="flex items-center gap-2">

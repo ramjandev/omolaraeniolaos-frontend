@@ -64,6 +64,29 @@ import {
   formatEventTime,
 } from "./shared/event-format";
 
+function preferFilled<T extends object>(saved: T, current: Partial<T>): T {
+  const next = { ...saved };
+  for (const key of Object.keys(current) as (keyof T)[]) {
+    const value = current[key];
+    if (typeof value === "string") {
+      if (value.trim()) next[key] = value as T[keyof T];
+    } else if (value !== undefined && value !== null) {
+      next[key] = value as T[keyof T];
+    }
+  }
+  return next;
+}
+
+function paymentReturnKey() {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const status = (params.get("status") || params.get("payment_status") || "").toLowerCase();
+  const paid = status === "successful" || status === "completed" || params.get("payment_success") === "true";
+  if (!paid) return null;
+  const tx = params.get("tx_ref") || params.get("transaction_id") || "return";
+  return `event-created-after-payment:${tx}`;
+}
+
 function formatInviteDate(value: string) {
   if (!value) return "";
   const date = new Date(`${value}T12:00:00`);
@@ -214,12 +237,19 @@ const INVITATION_TEMPLATES: InvitationTemplateItem[] = [
 
 export function IndividualEventWorkspace({
   initialStep,
+  startNew = false,
 }: {
   initialStep?: StepKey;
+  startNew?: boolean;
 }) {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const wizard = useAppSelector((state) => state.event);
+  const wizardReady = useAppSelector(
+    (state) =>
+      (state.event as { _persist?: { rehydrated?: boolean } })._persist
+        ?.rehydrated === true,
+  );
   const { data: profile } = useGetMeQuery();
   const planPaid = profile?.data?.plan?.isPaid === true;
   const activeStep = wizard.activeStep;
@@ -230,7 +260,7 @@ export function IndividualEventWorkspace({
   }, [dispatch, initialStep]);
 
   React.useEffect(() => {
-    if (planPaid && activeStep === "payment") {
+    if (planPaid && activeStep === "payment" && !paymentReturnKey()) {
       dispatch(setWizardStep("experience"));
     }
   }, [activeStep, dispatch, planPaid]);
@@ -269,6 +299,41 @@ export function IndividualEventWorkspace({
       })),
     },
   });
+  const freshStart = React.useRef(false);
+  const formsSynced = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!wizardReady || formsSynced.current || freshStart.current) return;
+    formsSynced.current = true;
+    basicsForm.reset(wizard.basics);
+    detailsForm.reset(wizard.details);
+    invitationForm.reset(wizard.invitation);
+    experienceForm.reset(
+      Array.isArray(wizard.experience.languages)
+        ? { ...initialEventWizardState.experience, ...wizard.experience }
+        : initialEventWizardState.experience,
+    );
+  }, [basicsForm, detailsForm, experienceForm, invitationForm, wizard, wizardReady]);
+
+  React.useEffect(() => {
+    if (!startNew || !wizardReady || freshStart.current) return;
+    freshStart.current = true;
+    dispatch(clearEventWizard());
+    basicsForm.reset(initialEventWizardState.basics);
+    detailsForm.reset(initialEventWizardState.details);
+    invitationForm.reset(initialEventWizardState.invitation);
+    experienceForm.reset(initialEventWizardState.experience);
+    router.replace("/organizer/individual/events/create");
+  }, [
+    basicsForm,
+    detailsForm,
+    dispatch,
+    experienceForm,
+    invitationForm,
+    router,
+    startNew,
+    wizardReady,
+  ]);
 
   const [createEvent, { isLoading: isCreatingEvent }] =
     useCreateEventMutation();
@@ -285,6 +350,10 @@ export function IndividualEventWorkspace({
     null,
   );
   const [finishedTitle, setFinishedTitle] = React.useState("");
+  const finishedEventRef = React.useRef<string | null>(null);
+  const wizardRef = React.useRef(wizard);
+  wizardRef.current = wizard;
+  const paymentCreateStarted = React.useRef(false);
 
   const eventName = basicsForm.watch("eventName") || wizard.basics.eventName;
   const eventType = basicsForm.watch("eventType") || wizard.basics.eventType;
@@ -313,14 +382,20 @@ export function IndividualEventWorkspace({
     message ? <p className="text-xs text-[#B33927]">{message}</p> : null;
 
   const createEventFromWizard = async () => {
-    const basicsResult = basicsSchema.safeParse(basicsForm.getValues());
-    const detailsResult = detailsSchema.safeParse(detailsForm.getValues());
+    const saved = wizardRef.current;
+    const basicsInput = preferFilled(saved.basics, basicsForm.getValues());
+    const detailsInput = preferFilled(saved.details, detailsForm.getValues());
+    if (basicsInput.eventName === "Please fill out this field.") {
+      basicsInput.eventName = saved.basics.eventName === "Please fill out this field." ? "" : saved.basics.eventName;
+    }
+    const basicsResult = basicsSchema.safeParse(basicsInput);
+    const detailsResult = detailsSchema.safeParse(detailsInput);
     if (!basicsResult.success || !detailsResult.success) {
       toast.error(
         "Finish the basics and details steps before creating the event.",
       );
       setActiveStep(basicsResult.success ? "details" : "basics");
-      return;
+      throw new Error("Finish the basics and details steps before creating the event.");
     }
     const basics = basicsResult.data;
     const details = detailsResult.data;
@@ -340,17 +415,57 @@ export function IndividualEventWorkspace({
     }).unwrap();
     const eventId = created.data?.id;
     if (!eventId) throw new Error("Event was not created");
-    if (wizard.guests.length > 0) {
-      await bulkAddGuests({
-        eventId,
-        data: { guests: wizard.guests.map(toGuestPayload) },
-      }).unwrap();
+    if (saved.guests.length > 0) {
+      try {
+        await bulkAddGuests({
+          eventId,
+          data: { guests: saved.guests.map(toGuestPayload) },
+        }).unwrap();
+      } catch {
+        toast.error("The event was created, but the guest list could not be saved.");
+      }
     }
+    finishedEventRef.current = eventId;
     setFinishedEventId(eventId);
-    setFinishedTitle(basics.eventName);
+    setFinishedTitle(basics.eventName.trim());
     dispatch(clearEventWizard());
     setIsReadySuccessOpen(true);
+    const returnKey = paymentReturnKey();
+    if (returnKey) {
+      sessionStorage.setItem(returnKey, JSON.stringify({ eventId, title: basics.eventName.trim() }));
+    }
   };
+
+  const createEventRef = React.useRef(createEventFromWizard);
+  createEventRef.current = createEventFromWizard;
+
+  React.useEffect(() => {
+    if (!wizardReady) return;
+    const key = paymentReturnKey();
+    if (!key || paymentCreateStarted.current) return;
+    const existing = sessionStorage.getItem(key);
+    if (existing) {
+      try {
+        const saved = JSON.parse(existing) as { eventId?: string; title?: string };
+        if (saved.eventId) {
+          finishedEventRef.current = saved.eventId;
+          setFinishedEventId(saved.eventId);
+          setFinishedTitle(saved.title || "Your event");
+          setIsReadySuccessOpen(true);
+        }
+      } catch {
+        sessionStorage.removeItem(key);
+      }
+      return;
+    }
+    paymentCreateStarted.current = true;
+    setIsProcessingPayment(true);
+    void createEventRef.current()
+      .catch(() => {
+        paymentCreateStarted.current = false;
+      })
+      .finally(() => setIsProcessingPayment(false));
+  }, [wizardReady]);
 
   const continueBasics = basicsForm.handleSubmit((values) => {
     dispatch(saveBasics(values));
@@ -427,6 +542,8 @@ export function IndividualEventWorkspace({
   };
 
   const continueExperience = experienceForm.handleSubmit(async (values) => {
+    dispatch(saveBasics(preferFilled(wizardRef.current.basics, basicsForm.getValues())));
+    dispatch(saveDetails(preferFilled(wizardRef.current.details, detailsForm.getValues())));
     dispatch(saveExperience(values));
     if (!planPaid) {
       setActiveStep("payment");
@@ -455,6 +572,9 @@ export function IndividualEventWorkspace({
           guests: expectedGuests || undefined,
         }}
       />
+      {isProcessingPayment && (
+        <p className="text-sm text-[#736B66]">Creating your event…</p>
+      )}
 
       {/* Horizontal Connected Stepper matching Figma (Basics -> Details -> Guests -> Invitation -> Experience -> Payment) */}
       <div className="relative flex items-center justify-center pt-2 pb-4">
@@ -1426,11 +1546,11 @@ export function IndividualEventWorkspace({
 
           <div className="pt-4">
             <Button
+              type="button"
               onClick={() => {
+                const eventId = finishedEventRef.current || finishedEventId;
                 setIsReadySuccessOpen(false);
-                router.push(
-                  eventsPath("individual", finishedEventId ?? undefined),
-                );
+                router.push(eventsPath("individual", eventId ?? undefined));
               }}
               variant="outline"
               className="w-full h-11 text-xs font-bold rounded-full border-foreground text-foreground hover:bg-muted"

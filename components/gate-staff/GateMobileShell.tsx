@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Calendar, LayoutGrid, Clock, User, Bell } from 'lucide-react';
+import { pingGatePresence } from '@/lib/api/platform';
 
 interface GateMobileShellProps {
   children: React.ReactNode;
@@ -17,6 +18,36 @@ export function GateMobileShell({
   activeTab,
 }: GateMobileShellProps) {
   const pathname = usePathname();
+  const [initials, setInitials] = React.useState('GS');
+
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem('mcenies_auth_user');
+      const user = raw ? JSON.parse(raw) as { fullName?: string } : null;
+      const letters = (user?.fullName || '')
+        .split(' ')
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+      if (letters) setInitials(letters);
+    } catch {
+      setInitials('GS');
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (pathname.includes('/login')) return;
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+    if (!token) return;
+    const ping = () => {
+      void pingGatePresence();
+    };
+    ping();
+    const timer = window.setInterval(ping, 20000);
+    return () => window.clearInterval(timer);
+  }, [pathname]);
 
   // Determine current tab if not specified
   const current = activeTab || (
@@ -56,18 +87,8 @@ export function GateMobileShell({
               >
                 <Bell className="w-5 h-5 stroke-[1.8]" />
               </button>
-              <Link href="/gate-staff/profile" className="w-8 h-8 rounded-full overflow-hidden border border-[#D5CFC7] bg-[#E8E2D8] flex items-center justify-center text-xs font-semibold text-[#5A4F46]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
-                  src="/images/gate/Profile.png" 
-                  alt="Staff avatar" 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to initials if image missing
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                <span>TA</span>
+              <Link href="/gate-staff/profile" className="w-8 h-8 rounded-full border border-[#D5CFC7] bg-[#E8E2D8] flex items-center justify-center text-xs font-semibold text-[#5A4F46]">
+                {initials}
               </Link>
             </div>
           </header>

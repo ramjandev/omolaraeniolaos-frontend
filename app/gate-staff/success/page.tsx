@@ -7,6 +7,21 @@ import { GateMobileShell } from '@/components/gate-staff/GateMobileShell';
 
 export default function GateStaffSuccessPage() {
   const router = useRouter();
+  const [guest, setGuest] = React.useState({ name: 'Guest', partySize: 1, gate: 'Gate 1', checkedInAt: '' });
+
+  React.useEffect(() => {
+    const stored = sessionStorage.getItem('gate-last-guest');
+    if (!stored) return;
+    try {
+      setGuest((current) => ({ ...current, ...JSON.parse(stored) }));
+    } catch {
+      sessionStorage.removeItem('gate-last-guest');
+    }
+  }, []);
+
+  const time = guest.checkedInAt
+    ? new Date(guest.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    : 'Just now';
 
   return (
     <GateMobileShell showHeader={false} activeTab="checkin">
@@ -23,29 +38,29 @@ export default function GateStaffSuccessPage() {
             Guest Checked In Successfully
           </h1>
           <p className="text-sm text-[#70665F]">
-            Adeleke Adebayo and their party have been checked in.
+            {guest.name} and their party have been checked in.
           </p>
         </div>
 
         {/* Guest Summary Card */}
         <div className="w-full bg-white rounded-3xl p-5 border border-[#EAE5DC] shadow-[0_2px_8px_rgba(0,0,0,0.02)] text-left space-y-3">
           <h2 className="font-semibold text-base text-[#1F1916]">
-            Adeleke Adebayo
+            {guest.name}
           </h2>
 
           <div className="space-y-0.5">
             <span className="text-xs text-[#8A7E75] block">Party size</span>
-            <span className="text-sm font-semibold text-[#1F1916] block">2</span>
+            <span className="text-sm font-semibold text-[#1F1916] block">{guest.partySize}</span>
           </div>
 
           <div className="space-y-0.5">
             <span className="text-xs text-[#8A7E75] block">Gate</span>
-            <span className="text-sm font-semibold text-[#1F1916] block">Main Entrance</span>
+            <span className="text-sm font-semibold text-[#1F1916] block">{guest.gate}</span>
           </div>
 
           <div className="space-y-0.5">
             <span className="text-xs text-[#8A7E75] block">Time</span>
-            <span className="text-sm font-semibold text-[#1F1916] block">10:45 AM</span>
+            <span className="text-sm font-semibold text-[#1F1916] block">{time}</span>
           </div>
         </div>
 

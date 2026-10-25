@@ -5,6 +5,7 @@ import { Logo } from "@/components/auth/onboarding-ui";
 import { ArrowLeft, ArrowRight, CheckCircle2, Mail } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -26,13 +27,15 @@ const primaryButtonClass =
   "disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A3B18]";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordPage() {
+  const searchParams = useSearchParams();
   const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
   const [submittedEmail, setSubmittedEmail] = React.useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -40,6 +43,11 @@ export default function ForgotPasswordPage() {
       email: "",
     },
   });
+
+  React.useEffect(() => {
+    const email = searchParams.get("email");
+    if (email) setValue("email", email);
+  }, [searchParams, setValue]);
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
     try {
@@ -177,5 +185,13 @@ export default function ForgotPasswordPage() {
       {/* ───────── Right: artwork + glass card ───────── */}
       <AuthShowcase />
     </div>
+  );
+}
+
+export default function ForgotPasswordRoute() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <ForgotPasswordPage />
+    </React.Suspense>
   );
 }

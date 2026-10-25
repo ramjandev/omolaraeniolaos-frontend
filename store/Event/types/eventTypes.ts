@@ -171,9 +171,18 @@ export interface BulkAddGuestsPayload {
 
 export interface AssignSeatingPayload {
   attendeeId: string;
+  zoneId?: string;
   tableNumber: number;
   seatNumber?: number;
   zoneName?: string;
+}
+
+export interface CreateSeatingPayload {
+  name: string;
+  guestGroup?: string;
+  location?: string;
+  capacity: number;
+  reservedSeats?: number;
 }
 
 export interface ResolveFlagPayload {

@@ -37,27 +37,8 @@ export function PlanPaymentFlow({
   const [selectedPlan, setSelectedPlan] = React.useState<Plan | null>(null);
   const [method, setMethod] = React.useState<"card" | "transfer">("card");
   const [isFinishing, setIsFinishing] = React.useState(false);
-  const returnStarted = React.useRef(false);
 
   const busy = isStartingPayment || isFinishing;
-  const onPaidRef = React.useRef(onPaid);
-  onPaidRef.current = onPaid;
-
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("status") !== "successful" || returnStarted.current) return;
-    const tx = params.get("tx_ref") || params.get("transaction_id") || "return";
-    const key = `plan-payment-done:${tx}`;
-    if (sessionStorage.getItem(key)) return;
-    returnStarted.current = true;
-    setIsFinishing(true);
-    void onPaidRef.current()
-      .then(() => sessionStorage.setItem(key, "1"))
-      .catch(() => {
-        returnStarted.current = false;
-      })
-      .finally(() => setIsFinishing(false));
-  }, []);
 
   const pay = async () => {
     if (!selectedPlan) return;

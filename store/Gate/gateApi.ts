@@ -1,6 +1,14 @@
 import { baseAPI } from "../BaseApi/baseAPI";
 import type { ApiResponse } from "../Auth/types/authTypes";
 
+export interface GateStaffAssignment {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  gateNumber: string;
+  assignedAt: string;
+}
+
 export interface GateStaffMember {
   id: string;
   fullName: string;
@@ -13,6 +21,7 @@ export interface GateStaffMember {
   currentEventId?: string | null;
   gateNumber?: string | null;
   isOwner: boolean;
+  assignments?: GateStaffAssignment[];
 }
 
 export interface GateEventOption {
@@ -84,6 +93,22 @@ export const gateAPI = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["GateStaff"],
     }),
+    unassignGateStaff: build.mutation<ApiResponse<{ removed?: number }>, { staffId: string; eventId: string }>({
+      query: (body) => ({
+        url: "/individual/gate/unassign",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["GateStaff"],
+    }),
+    removeGateStaff: build.mutation<ApiResponse<{ deleted?: boolean }>, { staffId: string }>({
+      query: (body) => ({
+        url: "/individual/gate/remove",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["GateStaff"],
+    }),
   }),
 });
 
@@ -92,4 +117,6 @@ export const {
   useInviteGateStaffMutation,
   useAssignGateStaffMutation,
   useAssignRosterGateStaffMutation,
+  useUnassignGateStaffMutation,
+  useRemoveGateStaffMutation,
 } = gateAPI;

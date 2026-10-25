@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { submitGuestRsvp } from '@/lib/api/platform';
+import { getGuestPass, submitGuestRsvp, type GuestPass } from '@/lib/api/platform';
 import {
   ArrowLeft,
   MoreVertical,
@@ -45,6 +45,29 @@ const LANGUAGES: LanguageOption[] = [
   { code: 'pcm', label: 'Naija Pidgin' },
 ];
 
+function firstName(name: string) {
+  const parts = name.trim().split(/\s+/).filter((part) => !/^(md|mr|mrs|ms|dr)\.?$/i.test(part));
+  return parts[0] || name || 'Guest';
+}
+
+function formatEventWhen(value?: string) {
+  if (!value) return 'Date to be confirmed';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function withCurrent(options: string[], current: string) {
+  return options.includes(current) ? options : [current, ...options];
+}
+
 export default function GuestConversationalRsvpPage() {
   const router = useRouter();
   // State management for conversation flow
@@ -54,9 +77,10 @@ export default function GuestConversationalRsvpPage() {
   const [guestCountSubmitted, setGuestCountSubmitted] = React.useState<boolean>(false);
   
   // Guest Profile Preferences
-  const [role, setRole] = React.useState<string>('VIP Dignitary');
+  const [invite, setInvite] = React.useState<GuestPass | null>(null);
+  const [role, setRole] = React.useState<string>('General');
   const [diet, setDiet] = React.useState<string>('Standard Banquet');
-  const [protocol, setProtocol] = React.useState<string>('VIP Protocol Escort');
+  const [protocol, setProtocol] = React.useState<string>('Standard Gate');
   const [profileSubmitted, setProfileSubmitted] = React.useState<boolean>(false);
 
   // Voice Note Modal state
@@ -108,7 +132,7 @@ export default function GuestConversationalRsvpPage() {
   };
 
   const persistRsvp = React.useCallback(
-    async (status: 'accepted' | 'tentative' | 'declined', extras?: { partySize?: number; dietary?: string }) => {
+    async (status: 'accepted' | 'tentative' | 'declined', extras?: { partySize?: number; dietary?: string; notes?: string }) => {
       if (typeof window === 'undefined') return;
       const params = new URLSearchParams(window.location.search);
       try {
@@ -120,13 +144,57 @@ export default function GuestConversationalRsvpPage() {
           partySize: extras?.partySize ?? guestCount,
           dietary: extras?.dietary ?? diet,
           language: selectedLang,
+          notes: extras?.notes || `Protocol: ${protocol}`,
         });
       } catch {
         // Keep the local conversation even if the backend is unreachable.
       }
     },
-    [diet, guestCount, selectedLang],
+    [diet, guestCount, protocol, selectedLang],
   );
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let active = true;
+    const load = (initial: boolean) => {
+      getGuestPass({
+        attendeeId: params.get('attendeeId'),
+        eventId: params.get('eventId'),
+        qrCode: params.get('qr'),
+      })
+        .then((pass) => {
+          if (!active) return;
+          setInvite(pass);
+          if (!initial) return;
+          setGuestCount(Math.max(1, pass.partySize || 1));
+          if (pass.guestType) setRole(pass.guestType);
+          if (pass.dietaryPreference) setDiet(pass.dietaryPreference);
+          if (pass.rsvpStatus === 'CONFIRMED') {
+            setRsvpStatus('accepted');
+            setGuestCountSubmitted(true);
+            if (pass.dietaryPreference) setProfileSubmitted(true);
+          } else if (pass.rsvpStatus === 'TENTATIVE') {
+            setRsvpStatus('tentative');
+          } else if (pass.rsvpStatus === 'DECLINED') {
+            setRsvpStatus('declined');
+          }
+        })
+        .catch(() => {
+          if (active && initial) setInvite(null);
+        });
+    };
+    load(true);
+    const refresh = () => {
+      if (document.visibilityState === 'visible') load(false);
+    };
+    document.addEventListener('visibilitychange', refresh);
+    const timer = window.setInterval(refresh, 15000);
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', refresh);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const handleAcceptRsvp = () => {
     setRsvpStatus('accepted');
@@ -168,6 +236,11 @@ export default function GuestConversationalRsvpPage() {
       ...prev,
       { sender: 'user', text: userText, time },
     ]);
+    if (rsvpStatus !== 'pending') {
+      void persistRsvp(rsvpStatus === 'declined' ? 'declined' : rsvpStatus === 'tentative' ? 'tentative' : 'accepted', {
+        notes: `Protocol: ${protocol}. Guest note: ${userText}`,
+      });
+    }
 
     // Simulated intelligent assistant response
     setTimeout(() => {
@@ -175,7 +248,7 @@ export default function GuestConversationalRsvpPage() {
         ...prev,
         {
           sender: 'assistant',
-          text: `Thank you Chief Adeleke. I have updated your protocol notes with: "${userText}". Our hospitality desk has been notified.`,
+          text: `Thank you ${firstName(invite?.fullName || 'Guest')}. Your note has been saved: "${userText}".`,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -223,7 +296,7 @@ export default function GuestConversationalRsvpPage() {
                 </div>
                 <p className="text-[11px] text-[#A2D2C2] leading-none mt-0.5 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#25D366] animate-pulse" />
-                  <span>Always active · Wedding & Gala VIP</span>
+                  <span>{invite?.event?.title || 'Your invitation'}</span>
                 </p>
               </div>
             </div>
@@ -231,7 +304,7 @@ export default function GuestConversationalRsvpPage() {
 
           <div className="flex items-center gap-1">
             <Link
-              href="/guest/pass"
+              href={invite ? `/guest/pass?attendeeId=${invite.attendeeId}&eventId=${invite.eventId}&qr=${encodeURIComponent(invite.qrCode)}` : '/guest/pass'}
               className="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-medium flex items-center gap-1 transition-all"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-[#FDE68A]" />
@@ -279,8 +352,8 @@ export default function GuestConversationalRsvpPage() {
               <div className="w-full h-40 rounded-xl overflow-hidden relative shadow-inner bg-gradient-to-tr from-[#7A3B18] via-[#8F4721] to-[#D4A373]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1200&q=80"
-                  alt="The Grand Royal Gala Invitation"
+                  src={invite?.event?.coverImageUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80'}
+                  alt={invite?.event?.title || 'Event invitation'}
                   className="w-full h-full object-cover opacity-85 hover:scale-105 transition-transform duration-500"
                   onError={(e) => {
                     // Fallback visually elegant backdrop
@@ -289,10 +362,10 @@ export default function GuestConversationalRsvpPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-3 text-white">
                   <span className="text-[10px] uppercase font-bold tracking-widest text-[#FDE68A]">
-                    Official Royal Invitation
+                    Official Invitation
                   </span>
                   <h2 className="font-serif text-lg font-bold leading-tight drop-shadow-sm text-[#FFF8ED]">
-                    The Grand Royal Gala & Investiture
+                    {invite?.event?.title || 'Your event'}
                   </h2>
                 </div>
               </div>
@@ -300,10 +373,10 @@ export default function GuestConversationalRsvpPage() {
               {/* Greeting */}
               <div className="space-y-1">
                 <p className="font-serif text-sm font-semibold text-[#1F1916]">
-                  Distinguished Chief Adeleke Adebayo,
+                  Hello {invite?.fullName || 'Guest'},
                 </p>
                 <p className="text-xs text-[#4A403A] leading-relaxed">
-                  You are cordially invited to celebrate with the royal family at <span className="font-medium text-[#7A3B18]">The Monarch Event Centre</span>, Lekki Phase 1, Lagos.
+                  You are invited to <span className="font-medium text-[#7A3B18]">{invite?.event?.venueName || invite?.event?.city || 'the venue'}</span>.
                 </p>
               </div>
 
@@ -311,15 +384,11 @@ export default function GuestConversationalRsvpPage() {
               <div className="bg-[#FAF8F5] rounded-xl p-2.5 space-y-1.5 border border-[#ECE7DF] text-xs">
                 <div className="flex items-center gap-2 text-[#3D352F]">
                   <Calendar className="w-3.5 h-3.5 text-[#7A3B18] shrink-0" />
-                  <span className="font-medium">Saturday, 24 October 2026</span>
-                </div>
-                <div className="flex items-center gap-2 text-[#3D352F]">
-                  <Clock className="w-3.5 h-3.5 text-[#7A3B18] shrink-0" />
-                  <span>14:00 Prompt (Red Carpet & Welcome Reception)</span>
+                  <span className="font-medium">{formatEventWhen(invite?.event?.startDate)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[#3D352F]">
                   <MapPin className="w-3.5 h-3.5 text-[#7A3B18] shrink-0" />
-                  <span>The Monarch Event Centre, Lekki, Lagos</span>
+                  <span>{[invite?.event?.venueName, invite?.event?.address, invite?.event?.city].filter(Boolean).join(', ') || 'Venue to be confirmed'}</span>
                 </div>
               </div>
 
@@ -496,7 +565,7 @@ export default function GuestConversationalRsvpPage() {
             <div className="flex flex-col items-start max-w-[94%]">
               <div className="bg-white rounded-2xl rounded-tl-xs p-3.5 shadow-sm border border-[#E1DDD5] space-y-3 w-full">
                 <p className="text-xs text-[#1F1916] leading-relaxed">
-                  Delighted to have you, Chief Adeleke! How many guests will be attending with your party?
+                  Delighted to have you, {firstName(invite?.fullName || 'Guest')}. How many people are in your party?
                 </p>
 
                 {/* Party Size Buttons */}
@@ -554,7 +623,7 @@ export default function GuestConversationalRsvpPage() {
                     Relationship / Role:
                   </label>
                   <div className="flex flex-wrap gap-1.5">
-                    {['VIP Dignitary', 'Family', 'Royal Entourage', 'Close Friend'].map((r) => (
+                    {withCurrent(['General', 'VIP', 'Family', 'Friend'], role).map((r) => (
                       <button
                         key={r}
                         type="button"
@@ -577,7 +646,7 @@ export default function GuestConversationalRsvpPage() {
                     Dietary Requirements:
                   </label>
                   <div className="flex flex-wrap gap-1.5">
-                    {['Standard Banquet', 'Halal', 'Vegetarian', 'Pescatarian'].map((d) => (
+                    {withCurrent(['Standard Banquet', 'Halal', 'Vegetarian', 'Pescatarian'], diet).map((d) => (
                       <button
                         key={d}
                         type="button"
@@ -655,7 +724,7 @@ export default function GuestConversationalRsvpPage() {
                     </span>
                   </div>
                   <span className="text-[10px] font-mono text-[#E5A84D] bg-[#2A221C] px-2 py-0.5 rounded-md border border-[#48392F]">
-                    Table 01 VIP
+                    {invite?.tableName || 'Not assigned'}
                   </span>
                 </div>
 
@@ -664,22 +733,24 @@ export default function GuestConversationalRsvpPage() {
                   <div className="w-20 h-20 rounded-xl bg-white p-1.5 shrink-0 flex items-center justify-center shadow-md">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="/images/guest/Frame 68.png"
-                      alt="VIP QR Thumbnail"
+                      src={invite ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(invite.qrCode)}` : '/images/guest/Frame 68.png'}
+                      alt={`${invite?.fullName || 'Guest'} QR code`}
                       className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
                     />
                   </div>
 
                   <div className="space-y-1 text-xs">
                     <p className="font-serif font-bold text-sm text-[#FDF9F3]">
-                      Chief Adeleke Adebayo
+                      {invite?.fullName || 'Guest'}
                     </p>
                     <p className="text-[11px] text-[#C5B8AC]">
-                      Token: <span className="font-mono text-[#E5A84D]">MCV-2026-NGA-98421</span>
+                      Token: <span className="font-mono text-[#E5A84D]">{invite?.qrCode || 'Pending'}</span>
                     </p>
+                    {invite?.seatLabel && (
+                      <p className="text-[11px] text-[#E5A84D]">
+                        Seats: {invite.seatLabel}
+                      </p>
+                    )}
                     <p className="text-[11px] text-emerald-400 flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3" />
                       <span>Security Validation Active</span>
@@ -688,7 +759,7 @@ export default function GuestConversationalRsvpPage() {
                 </div>
 
                 <Link
-                  href="/guest/pass"
+                  href={invite ? `/guest/pass?attendeeId=${invite.attendeeId}&eventId=${invite.eventId}&qr=${encodeURIComponent(invite.qrCode)}` : '/guest/pass'}
                   className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#7A3B18] to-[#99451C] hover:opacity-95 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm border border-[#B25424]"
                 >
                   <Award className="w-3.5 h-3.5 text-[#FDE68A]" />
@@ -714,24 +785,24 @@ export default function GuestConversationalRsvpPage() {
 
                 <div className="text-xs text-[#4A403A] space-y-1.5 leading-relaxed bg-[#FAF8F5] p-2.5 rounded-xl border border-[#ECE7DF]">
                   <p>
-                    <strong className="text-[#1F1916]">Dress Code:</strong> Traditional Royal Grandeur or Black Tie.
+                    <strong className="text-[#1F1916]">Guest group:</strong> {role}.
                   </p>
                   <p>
-                    <strong className="text-[#1F1916]">Designated Gate:</strong> Gate 2 (VIP & Red Carpet Entrance).
+                    <strong className="text-[#1F1916]">Arrival:</strong> Show this digital pass at the gate.
                   </p>
                   <p>
-                    <strong className="text-[#1F1916]">Valet Parking:</strong> Reserved Priority Valet Bay B. Show digital pass on dash or phone.
+                    <strong className="text-[#1F1916]">Access:</strong> {protocol}.
                   </p>
                 </div>
 
                 <a
-                  href="https://maps.google.com"
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([invite?.event?.venueName, invite?.event?.address, invite?.event?.city].filter(Boolean).join(', ') || invite?.event?.title || 'Event venue')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-2 px-3 rounded-xl bg-[#F0EDE6] hover:bg-[#E8E2D8] text-xs font-medium text-[#7A3B18] flex items-center justify-center gap-1.5 border border-[#D5CFC7] transition-colors"
                 >
                   <MapPin className="w-3.5 h-3.5" />
-                  <span>Open Monarch Centre in Google Maps</span>
+                  <span>Open {invite?.event?.venueName || 'the venue'} in Google Maps</span>
                   <ExternalLink className="w-3 h-3 text-[#A8988B]" />
                 </a>
 

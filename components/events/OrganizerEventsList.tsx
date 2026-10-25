@@ -60,7 +60,7 @@ export function OrganizerEventsList({ organizer }: { organizer: OrganizerKind })
     });
   }, [events, filter, search]);
 
-  const createHref = eventsPath(organizer, 'create');
+  const createHref = `${eventsPath(organizer, 'create')}?new=1`;
 
   return (
     <div className="w-full space-y-5">

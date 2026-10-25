@@ -4,15 +4,49 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin } from 'lucide-react';
 import { GateMobileShell } from '@/components/gate-staff/GateMobileShell';
-import { INITIAL_GATE_EVENTS } from '@/lib/gate-staff-data';
+import { getGateWorkspace, type GateWorkspace } from '@/lib/api/platform';
+
+function formatEventDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 export default function GateStaffMyEventsPage() {
   const router = useRouter();
-  const events = INITIAL_GATE_EVENTS;
+  const [events, setEvents] = React.useState<GateWorkspace['events']>([]);
+  const [message, setMessage] = React.useState('Loading your events…');
+
+  const loadEvents = React.useCallback(() => {
+    setMessage('Loading your events…');
+    return getGateWorkspace()
+      .then((workspace) => {
+        const rows = workspace.events || [];
+        setEvents(rows);
+        setMessage(rows.length ? '' : 'No events are assigned to you yet.');
+      })
+      .catch(() => {
+        setEvents([]);
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+        if (!token) {
+          window.location.assign('/gate-staff/login');
+          return;
+        }
+        setMessage('Your assignments could not be loaded. Sign in again from the gate staff login page.');
+      });
+  }, []);
+
+  React.useEffect(() => {
+    void loadEvents();
+    const onFocus = () => {
+      void loadEvents();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadEvents]);
 
   return (
     <GateMobileShell showHeader={true} activeTab="events">
-      {/* Title & Subtitle matching 03 · Assigned events.png */}
       <div className="space-y-1 mb-5">
         <h1 className="font-serif text-3xl font-medium tracking-tight text-[#1F1916]">
           My Events
@@ -22,48 +56,43 @@ export default function GateStaffMyEventsPage() {
         </p>
       </div>
 
-      {/* Events List */}
+      {message && (
+        <p className="text-sm text-[#70665F]">{message}</p>
+      )}
+
       <div className="space-y-4">
         {events.map((evt) => (
           <div
             key={evt.id}
             className="bg-white rounded-3xl p-5 border border-[#EAE5DC] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-4"
           >
-            {/* Status indicator */}
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#B04A26] inline-block" />
+              <span className={`w-2.5 h-2.5 rounded-full inline-block ${evt.status === 'Live' ? 'bg-[#2A6E3B]' : 'bg-[#B04A26]'}`} />
               <span className="text-sm font-medium text-[#7A3B18]">
                 {evt.status}
               </span>
             </div>
 
-            {/* Event Title */}
             <h2 className="font-semibold text-lg text-[#1F1916] leading-snug">
               {evt.title}
             </h2>
 
-            {/* Date Details */}
             <div className="space-y-1">
               <span className="text-xs text-[#8A7E75] block">Date</span>
               <span className="text-sm font-medium text-[#2C2420] block">
-                {evt.date}
+                {formatEventDate(evt.startDate)}
               </span>
             </div>
 
-            {/* Gate Location */}
             <div className="flex items-center gap-2 text-sm text-[#4A403A]">
               <MapPin className="w-4 h-4 text-[#7A3B18] stroke-[2]" />
               <span className="font-normal">{evt.gate}</span>
             </div>
 
-            {/* Organizer */}
-            {evt.organizer && (
-              <p className="text-xs text-[#8A7E75]">
-                Organizer: {evt.organizer}
-              </p>
-            )}
+            <p className="text-xs text-[#8A7E75]">
+              Organizer: {evt.organizer}
+            </p>
 
-            {/* Open Event CTA button */}
             <button
               type="button"
               onClick={() => router.push(`/gate-staff/checkin?eventId=${evt.id}`)}

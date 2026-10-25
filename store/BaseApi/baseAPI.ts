@@ -77,8 +77,11 @@ const baseQueryWithToasts: typeof baseQueryAPI = async (
         message?: string;
         error?: string;
       };
+      const requestUrl = typeof args === "object" && "url" in args ? String(args.url) : "";
       const isSessionExpired =
-        result.error.status === 401 && errorData?.error === "Unauthorized";
+        result.error.status === 401 &&
+        errorData?.error === "Unauthorized" &&
+        !requestUrl.includes("/auth/login");
 
       if (isSessionExpired) {
         // Handle logout / session expiry here

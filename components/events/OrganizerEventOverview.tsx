@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Armchair, ArrowRight, Phone } from 'lucide-react';
+import { Armchair, ArrowRight, LayoutGrid, MessageCircle, Phone } from 'lucide-react';
 import { eventsPath, type OrganizerKind } from '@/lib/organizer';
-import { useGetEventByIdQuery, useGetEventGuestsQuery } from '@/store/Event/eventAPI';
+import { useGetEventByIdQuery, useGetEventGuestsQuery, usePublishEventMutation } from '@/store/Event/eventAPI';
+import { toast } from 'react-toastify';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard, StatCardGrid } from '@/components/shared/StatCard';
 import { EventBanner } from './shared/EventBanner';
@@ -21,16 +22,21 @@ interface OrganizerEventOverviewProps {
 export function OrganizerEventOverview({ organizer, eventId }: OrganizerEventOverviewProps) {
   const { data, isLoading, isError, refetch } = useGetEventByIdQuery(eventId);
   const { data: guestsData } = useGetEventGuestsQuery({ id: eventId });
+  const [publishEvent, { isLoading: publishing }] = usePublishEventMutation();
 
   const stats = React.useMemo(() => {
     const guests = guestsData?.data?.guests ?? [];
     const confirmed = guests.filter((g) => g.rsvpStatus === 'Confirmed');
     const expected = confirmed.reduce((sum, g) => sum + Math.max(1, g.partySize), 0);
+    const checkedIn = guests.filter((g) => g.checkInStatus === 'Checked-In').length;
     return {
       invited: guests.length,
       expected,
       confirmed: confirmed.length,
       companions: expected - confirmed.length,
+      checkedIn,
+      pending: guests.filter((g) => g.rsvpStatus === 'Confirmed' && g.checkInStatus !== 'Checked-In').length,
+      flagged: guests.filter((g) => g.isFlagged).length,
     };
   }, [guestsData]);
 
@@ -74,6 +80,17 @@ export function OrganizerEventOverview({ organizer, eventId }: OrganizerEventOve
   }
 
   const status = toUiStatus(event.status, event.rawStatus);
+  const isLive = status === 'live' || status === 'completed';
+  const showLiveCards = status !== 'draft';
+
+  const publish = async () => {
+    try {
+      await publishEvent(event.id).unwrap();
+      toast.success(`${event.title} is live. The three event cards are now on this page.`);
+    } catch {
+      // The API layer already shows the error.
+    }
+  };
 
   return (
     <div className="w-full space-y-4">
@@ -89,13 +106,99 @@ export function OrganizerEventOverview({ organizer, eventId }: OrganizerEventOve
         }}
       />
 
+      {status === 'draft' && (
+        <div className="flex flex-col gap-3 rounded-xl border border-[#E8E3DD] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-border dark:bg-card">
+          <p className="text-sm text-[#3F342D] dark:text-foreground">
+            This event is still a draft. Publish it to show the urgent update, seating, and check-in cards.
+          </p>
+          <button
+            type="button"
+            disabled={publishing}
+            onClick={() => void publish()}
+            className="h-9 shrink-0 rounded-lg bg-[#241710] px-4 text-xs font-medium text-white hover:bg-[#3D2518] disabled:opacity-60"
+          >
+            {publishing ? 'Publishing…' : 'Publish event'}
+          </button>
+        </div>
+      )}
+
       <StatCardGrid>
         <StatCard value={pad(stats.invited)} label="Total Invitees" hint="People invited" />
-        <StatCard value={pad(stats.expected)} label="Expected Attendance" hint="Confirmed people, incl. companions" />
-        <StatCard value={pad(stats.confirmed)} label="Confirmed Invitees" hint="Primary guests attending" />
-        <StatCard value={pad(stats.companions)} label="Additional Guests" hint="Confirmed companions" />
+        {isLive ? (
+          <>
+            <StatCard value={pad(stats.checkedIn)} label="Checked In" hint="Guests physically arrived" />
+            <StatCard value={pad(stats.pending)} label="Not Yet Arrived" hint="Confirmed guests pending" />
+            <StatCard value={pad(stats.flagged)} label="Flagged" hint="Exceptions requiring attention" />
+          </>
+        ) : (
+          <>
+            <StatCard value={pad(stats.expected)} label="Expected Attendance" hint="Confirmed people, incl. companions" />
+            <StatCard value={pad(stats.confirmed)} label="Confirmed Invitees" hint="Primary guests attending" />
+            <StatCard value={pad(stats.companions)} label="Additional Guests" hint="Confirmed companions" />
+          </>
+        )}
       </StatCardGrid>
 
+      {showLiveCards ? (
+      <div className="grid gap-3 md:grid-cols-3">
+        <Link
+          href={eventsPath(organizer, event.id, 'communications')}
+          className="group flex flex-col rounded-xl border border-[#D5E6D8] bg-[#E7F3EA] p-4 shadow-sm transition-shadow hover:shadow-md"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/70 text-[#3F342D]">
+              <MessageCircle className="size-4" />
+            </span>
+            <p className="text-[15px] font-medium text-[#261710]">Send An Urgent Update</p>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-[#5E554F]">
+            Broadcast delays, venue changes, or emergency updates to guests
+          </p>
+          <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[#3F342D]">
+            Send Broadcast
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </Link>
+
+        <Link
+          href={eventsPath(organizer, event.id, 'seating')}
+          className="group flex flex-col rounded-xl border border-[#E8E3DD] bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-border dark:bg-card"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#F1DFCB] bg-[#FFF5EA] text-[#7A3B18]">
+              <Armchair className="size-4" />
+            </span>
+            <p className="text-[15px] font-medium text-[#261710] dark:text-foreground">View Seating Plan</p>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-[#736B66]">
+            Review guest seating assignments and protocol at any time
+          </p>
+          <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[#7A3B18]">
+            View Seating
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </Link>
+
+        <Link
+          href={eventsPath(organizer, event.id, 'check-in')}
+          className="group flex flex-col rounded-xl border border-[#6B3E28] bg-[#7A4A32] p-4 text-white shadow-sm transition-shadow hover:shadow-md"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+              <LayoutGrid className="size-4" />
+            </span>
+            <p className="text-[15px] font-medium">Open Check-In Monitor</p>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-white/85">
+            Track live check-ins, monitor guest arrival, and respond to exceptions in real-time
+          </p>
+          <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-white">
+            Open Monitor
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </Link>
+      </div>
+      ) : (
       <div className="grid gap-3 md:grid-cols-2">
         <Link
           href={eventsPath(organizer, event.id, 'communications')}
@@ -139,8 +242,9 @@ export function OrganizerEventOverview({ organizer, eventId }: OrganizerEventOve
           </span>
         </Link>
       </div>
+      )}
 
-      <EventGuestsTable eventId={event.id} mode={status === 'draft' ? 'invite' : 'rsvp'} />
+      <EventGuestsTable eventId={event.id} mode={isLive ? 'checkin' : status === 'draft' ? 'invite' : 'rsvp'} />
     </div>
   );
 }

@@ -4,16 +4,33 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { GateMobileShell } from '@/components/gate-staff/GateMobileShell';
-import { INITIAL_GUESTS } from '@/lib/gate-staff-data';
+import { getGateWorkspace, type GateWorkspace } from '@/lib/api/platform';
+
+function formatWhen(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
 
 export default function GateStaffHistoryPage() {
   const router = useRouter();
   const [filterQuery, setFilterQuery] = React.useState('');
-  const guests = INITIAL_GUESTS.filter((g) => g.checkInStatus === 'Checked In');
+  const [scans, setScans] = React.useState<GateWorkspace['scans']>([]);
 
-  const filtered = guests.filter((g) =>
-    g.name.toLowerCase().includes(filterQuery.toLowerCase())
-  );
+  React.useEffect(() => {
+    const eventId = new URLSearchParams(window.location.search).get('eventId');
+    getGateWorkspace()
+      .then((workspace) => {
+        const rows = workspace.scans.filter((scan) => scan.status === 'VALID' && (!eventId || scan.eventId === eventId));
+        setScans(rows);
+      })
+      .catch(() => setScans([]));
+  }, []);
+
+  const filtered = scans.filter((scan) => scan.name.toLowerCase().includes(filterQuery.toLowerCase()));
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const todayCount = scans.filter((scan) => new Date(scan.scannedAt).getTime() >= startOfToday.getTime()).length;
 
   return (
     <GateMobileShell showHeader={false} activeTab="history">
@@ -45,7 +62,7 @@ export default function GateStaffHistoryPage() {
               Total Checked In
             </span>
             <span className="font-serif text-3xl font-semibold text-[#1F1916] block">
-              42
+              {scans.length}
             </span>
           </div>
 
@@ -54,7 +71,7 @@ export default function GateStaffHistoryPage() {
               Today&apos;s Check-ins
             </span>
             <span className="font-serif text-3xl font-semibold text-[#1F1916] block">
-              42
+              {todayCount}
             </span>
           </div>
         </div>
@@ -80,6 +97,9 @@ export default function GateStaffHistoryPage() {
 
         {/* History List */}
         <div className="space-y-3 pt-1">
+          {filtered.length === 0 && (
+            <p className="text-xs text-[#70665F]">No check-ins at your gate yet.</p>
+          )}
           {filtered.map((item) => (
             <div
               key={item.id}
@@ -93,11 +113,11 @@ export default function GateStaffHistoryPage() {
 
               <div className="flex items-center justify-between text-xs text-[#80756C]">
                 <span>Party {item.partySize}</span>
-                <span>{item.checkInTime || '10:45 AM'}</span>
+                <span>{formatWhen(item.scannedAt)}</span>
               </div>
 
               <p className="text-xs text-[#4A403A]">
-                {item.gateName || 'Main Entrance'}
+                {item.gate}
               </p>
 
               <div className="flex items-center gap-1.5 pt-1">

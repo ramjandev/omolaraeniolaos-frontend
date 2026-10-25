@@ -105,12 +105,35 @@ export interface GuestRosterResponse {
 }
 
 export interface CheckInMonitorResponse {
+  eventTitle?: string;
+  activityTotal?: number;
+  event?: {
+    title: string;
+    category?: string | null;
+    venueName?: string | null;
+    startDate?: string;
+    endDate?: string;
+    timezone?: string | null;
+    status?: string;
+    coverImageUrl?: string | null;
+  };
+  metrics?: {
+    totalInvitees?: number;
+    totalCheckedIn?: number;
+    notArrived?: number;
+    totalAttendance?: number;
+    flaggedCount?: number;
+    checkInPercentage?: number;
+  };
   liveActivityStream: Array<{
     id: string;
     attendeeName: string;
     scannedAt: string;
     turnstile: string;
     staffName?: string | null;
+    ticketTier?: string | null;
+    status?: string;
+    offlineSynced?: boolean;
   }>;
   flaggedExceptions: Array<{
     flagId: string;
@@ -118,6 +141,18 @@ export interface CheckInMonitorResponse {
     reason: string;
     timestamp: string;
     turnstile: string;
+    staffName?: string | null;
+    recommendation?: string;
+  }>;
+  gateStaff?: Array<{
+    id: string;
+    name: string;
+    role: string;
+    gate: string;
+    device: string;
+    isOnline: boolean;
+    lastScanAt?: string | null;
+    pendingOffline?: number;
   }>;
 }
 

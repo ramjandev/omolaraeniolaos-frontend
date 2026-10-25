@@ -39,6 +39,29 @@ import {
 import { parseGuestCsv } from './shared/guest-csv';
 
 type RsvpTab = 'all' | (typeof RSVP_STATUSES)[number];
+type CheckinTab = 'all' | 'Checked-In' | 'Not Arrived' | 'Flagged' | 'Rejected' | 'Tentative';
+type GuestTab = RsvpTab | CheckinTab;
+
+const CHECKIN_TABS: { value: CheckinTab; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'Checked-In', label: 'Checked In' },
+  { value: 'Not Arrived', label: 'Not Arrived' },
+  { value: 'Flagged', label: 'Flagged' },
+];
+
+const ARRIVAL_BADGE: Record<string, string> = {
+  'Checked-In': 'bg-[#E3F3EC] text-[#2F8A5F]',
+  'Not Arrived': 'bg-[#F0EDE9] text-[#5E554F]',
+  Rejected: 'bg-[#FBE4E1] text-[#B33927]',
+  Tentative: 'bg-[#F7EFE6] text-[#8C5835]',
+};
+
+function arrivalStatus(guest: EventGuest) {
+  if (guest.checkInStatus === 'Checked-In') return 'Checked-In';
+  if (guest.checkInStatus === 'Rejected') return 'Rejected';
+  if (guest.rsvpStatus === 'Tentative') return 'Tentative';
+  return 'Not Arrived';
+}
 
 const TABS: { value: RsvpTab; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -56,8 +79,8 @@ const cellSelect =
 
 interface EventGuestsTableProps {
   eventId: string;
-  /** Draft events invite guests; published events track RSVPs. */
-  mode: 'invite' | 'rsvp';
+  /** Draft events invite guests. Published events track RSVPs. Live events track check-in. */
+  mode: 'invite' | 'rsvp' | 'checkin';
 }
 
 export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
@@ -69,7 +92,8 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
   const [sendInvite] = useSendGuestInviteMutation();
   const [sendAllInvites, { isLoading: sendingAll }] = useSendAllInvitesMutation();
 
-  const [tab, setTab] = React.useState<RsvpTab>('all');
+  const [tab, setTab] = React.useState<GuestTab>('all');
+  const checkingIn = mode === 'checkin';
   const [search, setSearch] = React.useState('');
   const [typeFilter, setTypeFilter] = React.useState('all');
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc' | null>(null);
@@ -86,15 +110,32 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
 
   const tabCounts = React.useMemo(() => {
     const counts: Record<string, number> = { all: guests.length };
+    if (checkingIn) {
+      counts['Checked-In'] = 0;
+      counts['Not Arrived'] = 0;
+      counts.Flagged = 0;
+      for (const guest of guests) {
+        const arrival = arrivalStatus(guest);
+        if (arrival === 'Checked-In') counts['Checked-In'] += 1;
+        if (arrival === 'Not Arrived') counts['Not Arrived'] += 1;
+        if (guest.isFlagged) counts.Flagged += 1;
+      }
+      return counts;
+    }
     for (const status of RSVP_STATUSES) counts[status] = 0;
     for (const guest of guests) counts[guest.rsvpStatus] = (counts[guest.rsvpStatus] ?? 0) + 1;
     return counts;
-  }, [guests]);
+  }, [guests, checkingIn]);
 
   const filtered = React.useMemo(() => {
     const query = search.trim().toLowerCase();
     const rows = guests.filter((guest) => {
-      if (tab !== 'all' && guest.rsvpStatus !== tab) return false;
+      if (checkingIn) {
+        if (tab === 'Flagged' && !guest.isFlagged) return false;
+        if (tab !== 'all' && tab !== 'Flagged' && arrivalStatus(guest) !== tab) return false;
+      } else if (tab !== 'all' && guest.rsvpStatus !== tab) {
+        return false;
+      }
       if (typeFilter !== 'all' && guest.type !== typeFilter) return false;
       if (!query) return true;
       return (
@@ -107,13 +148,14 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
       rows.sort((a, b) => (sortDir === 'asc' ? a.partySize - b.partySize : b.partySize - a.partySize));
     }
     return rows;
-  }, [guests, tab, typeFilter, search, sortDir]);
+  }, [guests, tab, typeFilter, search, sortDir, checkingIn]);
 
   React.useEffect(() => {
     setPage(1);
   }, [tab, typeFilter, search, pageSize]);
 
   const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const columnCount = checkingIn ? 7 : 9;
   const allOnPageSelected = pageRows.length > 0 && pageRows.every((g) => selected.has(g.id));
 
   const toggleAllOnPage = () => {
@@ -199,28 +241,55 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
 
   return (
     <section className="rounded-2xl border border-[#E8E3DD] bg-white p-3 shadow-xs md:p-4 dark:border-border dark:bg-card">
-      <FilterPills
-        ariaLabel="Filter guests by RSVP status"
-        tone="underline"
-        value={tab}
-        onChange={setTab}
-        options={TABS.map((t) => ({ ...t, count: tabCounts[t.value] ?? 0 }))}
-        className="border-b border-[#EFEAE4] dark:border-border"
-      />
+      {checkingIn ? (
+        <div className="flex flex-col gap-2 border-b border-[#EFEAE4] pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-border">
+          <FilterPills
+            ariaLabel="Filter guests by check-in status"
+            tone="dark"
+            value={tab}
+            onChange={setTab}
+            options={CHECKIN_TABS.map((item) => ({ ...item, count: tabCounts[item.value] ?? 0 }))}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            className="inline-flex h-8 items-center gap-1.5 self-start rounded-lg border border-[#E3DED8] bg-white px-3 text-xs font-medium text-[#261710] shadow-xs hover:bg-[#F7F4F0] dark:border-border dark:bg-card dark:text-foreground"
+          >
+            <Plus className="size-3.5" />
+            Add Guest
+          </button>
+        </div>
+      ) : (
+        <FilterPills
+          ariaLabel="Filter guests by RSVP status"
+          tone="underline"
+          value={tab}
+          onChange={setTab}
+          options={TABS.map((t) => ({ ...t, count: tabCounts[t.value] ?? 0 }))}
+          className="border-b border-[#EFEAE4] dark:border-border"
+        />
+      )}
 
       <div className="flex flex-col gap-2 py-3 lg:flex-row lg:items-center lg:justify-between">
-        <SearchField value={search} onChange={setSearch} />
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder={checkingIn ? 'Search guest name...' : 'Search'}
+        />
         <div className="flex flex-wrap items-center gap-2">
           <select
-            aria-label="RSVP status"
+            aria-label={checkingIn ? 'Check-in status' : 'RSVP status'}
             value={tab}
-            onChange={(e) => setTab(e.target.value as RsvpTab)}
+            onChange={(e) => setTab(e.target.value as GuestTab)}
             className={toolbarSelect}
           >
-            <option value="all">RSVP Status</option>
-            {RSVP_STATUSES.map((status) => (
+            <option value="all">{checkingIn ? 'Check-in Status' : 'RSVP Status'}</option>
+            {(checkingIn ? ['Checked-In', 'Not Arrived', 'Rejected', 'Tentative', 'Flagged'] : RSVP_STATUSES).map((status) => (
               <option key={status} value={status}>
-                {status}
+                {status === 'Checked-In' ? 'Checked In' : status}
               </option>
             ))}
           </select>
@@ -237,6 +306,7 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
               </option>
             ))}
           </select>
+          {!checkingIn && (
           <button
             type="button"
             onClick={() => {
@@ -248,6 +318,7 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
             <Plus className="size-3.5" />
             Add Guest
           </button>
+          )}
           {mode === 'invite' && (
             <button
               type="button"
@@ -260,6 +331,7 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
               {sendingAll ? 'Sending…' : `Send All Invitations${tabCounts['Not Sent'] ? ` (${tabCounts['Not Sent']})` : ''}`}
             </button>
           )}
+          {!checkingIn && (
           <button
             type="button"
             disabled={importing}
@@ -269,12 +341,13 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
             <Upload className="size-3.5" />
             {importing ? 'Importing…' : 'Upload File'}
           </button>
+          )}
           <input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImport} />
         </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[#EFEAE4] dark:border-border">
-        <table className="w-full min-w-[760px] text-left text-xs">
+        <table className={cn('w-full text-left text-xs', checkingIn ? 'min-w-[860px]' : 'min-w-[1180px]')}>
           <thead className="bg-[#F3F1EE] text-[#3F342D] dark:bg-muted dark:text-foreground">
             <tr>
               <th className="w-10 px-3 py-2.5">
@@ -288,42 +361,41 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
               </th>
               <th className="px-3 py-2.5 font-medium">Guest &amp; Contact</th>
               <th className="px-3 py-2.5 text-center font-medium">Guest Type</th>
-              {mode === 'invite' ? (
-                <>
-                  <th className="px-3 py-2.5 text-center font-medium">Invite Through</th>
-                  <th className="px-3 py-2.5 text-center font-medium">Action</th>
-                </>
+              {checkingIn ? (
+                <th className="px-3 py-2.5 text-center font-medium">Check-In Status</th>
               ) : (
                 <>
-                  <th className="px-3 py-2.5 text-center font-medium">RSVP Status</th>
-                  <th className="px-3 py-2.5 text-center font-medium">
-                    <button
-                      type="button"
-                      onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-                      className="inline-flex items-center gap-1"
-                    >
-                      Party Size
-                      <ChevronsUpDown className="size-3" />
-                    </button>
-                  </th>
-                  <th className="px-3 py-2.5 font-medium">Preference</th>
-                  <th className="px-3 py-2.5 text-center font-medium">Action</th>
+              <th className="px-3 py-2.5 text-center font-medium">Invite Through</th>
+              <th className="px-3 py-2.5 text-center font-medium">Action</th>
+              <th className="px-3 py-2.5 text-center font-medium">RSVP Status</th>
                 </>
               )}
+              <th className="px-3 py-2.5 text-center font-medium">
+                <button
+                  type="button"
+                  onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                  className="inline-flex items-center gap-1"
+                >
+                  Party Size
+                  <ChevronsUpDown className="size-3" />
+                </button>
+              </th>
+              <th className="px-3 py-2.5 font-medium">Preference</th>
+              <th className="px-3 py-2.5 text-center font-medium">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#EFEAE4] dark:divide-border">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  <td colSpan={mode === 'invite' ? 5 : 7} className="px-3 py-3">
+                  <td colSpan={columnCount} className="px-3 py-3">
                     <Skeleton className="h-6 w-full" />
                   </td>
                 </tr>
               ))
             ) : isError ? (
               <tr>
-                <td colSpan={mode === 'invite' ? 5 : 7} className="px-3 py-10 text-center">
+                <td colSpan={columnCount} className="px-3 py-10 text-center">
                   <p className="text-sm text-[#7A2E21]">We couldn&apos;t load the guest list.</p>
                   <button
                     type="button"
@@ -336,7 +408,7 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
               </tr>
             ) : pageRows.length === 0 ? (
               <tr>
-                <td colSpan={mode === 'invite' ? 5 : 7} className="bg-[#F3F1EE] px-3 py-12 text-center dark:bg-muted/40">
+                <td colSpan={columnCount} className="bg-[#F3F1EE] px-3 py-12 text-center dark:bg-muted/40">
                   <Users className="mx-auto size-8 text-[#B3AAA1]" />
                   <p className="mt-2 text-sm text-[#736B66]">
                     {guests.length === 0
@@ -362,6 +434,8 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
               pageRows.map((guest) => {
                 const rowBusy = busyRow === guest.id;
                 const hasReply = guest.rsvpStatus === 'Confirmed' || guest.rsvpStatus === 'Tentative' || guest.rsvpStatus === 'Declined';
+                const arrival = arrivalStatus(guest);
+                const showParty = checkingIn ? arrival !== 'Not Arrived' : hasReply;
                 return (
                   <tr key={guest.id} className="bg-white hover:bg-[#FBFAF8] dark:bg-card dark:hover:bg-muted/30">
                     <td className="px-3 py-2.5">
@@ -396,89 +470,96 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
                         ))}
                       </select>
                     </td>
-                    {mode === 'invite' ? (
-                      <>
-                        <td className="px-3 py-2.5 text-center">
-                          <select
-                            aria-label={`Invite channel for ${guest.name}`}
-                            value={guest.inviteThrough}
-                            disabled={rowBusy}
-                            onChange={(e) =>
-                              runRowAction(guest.id, () =>
-                                updateGuest({
-                                  eventId,
-                                  guestId: guest.id,
-                                  data: { inviteThrough: e.target.value },
-                                }).unwrap(),
-                              )
-                            }
-                            className={cn(cellSelect, CHANNEL_SELECT[guest.inviteThrough] ?? CHANNEL_SELECT.WhatsApp)}
-                          >
-                            {INVITE_CHANNELS.map((channel) => (
-                              <option key={channel} value={channel}>
-                                {channel}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-3 py-2.5 text-center">
-                          <button
-                            type="button"
-                            disabled={rowBusy}
-                            onClick={() =>
-                              runRowAction(guest.id, () =>
-                                sendInvite({ eventId, guestId: guest.id, channel: guest.inviteThrough }).unwrap(),
-                              )
-                            }
-                            className="rounded-md bg-[#6B3416] px-3 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] hover:bg-[#5A2B12] disabled:opacity-60"
-                          >
-                            {rowBusy ? 'Sending…' : guest.rsvpStatus === 'Not Sent' ? 'Send Invitation' : 'Resend Invitation'}
-                          </button>
-                        </td>
-                      </>
+                    {checkingIn ? (
+                      <td className="px-3 py-2.5 text-center">
+                        <span className={cn('inline-block rounded-md px-2 py-1 text-[11px]', ARRIVAL_BADGE[arrival])}>
+                          {arrival}
+                        </span>
+                      </td>
                     ) : (
                       <>
-                        <td className="px-3 py-2.5 text-center">
-                          <span
-                            className={cn(
-                              'inline-block rounded-md px-2 py-1 text-[11px]',
-                              RSVP_BADGE[guest.rsvpStatus] ?? RSVP_BADGE['Awaiting Response'],
-                            )}
-                          >
-                            {guest.rsvpStatus}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-center text-[13px] text-[#3F342D] dark:text-foreground">
-                          {hasReply && guest.rsvpStatus !== 'Declined' ? guest.partySize : '--'}
-                        </td>
-                        <td className="max-w-[180px] truncate px-3 py-2.5 text-[13px] text-[#3F342D] dark:text-foreground">
-                          {guest.preference && guest.preference !== '--' ? guest.preference : '--'}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              aria-label={`Edit ${guest.name}`}
-                              onClick={() => {
-                                setEditing(guest);
-                                setFormOpen(true);
-                              }}
-                              className="rounded p-1 text-[#7A3B18] hover:bg-[#F7EFE6]"
-                            >
-                              <Pencil className="size-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Delete ${guest.name}`}
-                              onClick={() => setPendingDelete(guest)}
-                              className="rounded p-1 text-[#B33927] hover:bg-[#FBE4E1]"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </div>
-                        </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <select
+                        aria-label={`Invite channel for ${guest.name}`}
+                        value={guest.inviteThrough}
+                        disabled={rowBusy}
+                        onChange={(e) =>
+                          runRowAction(guest.id, () =>
+                            updateGuest({
+                              eventId,
+                              guestId: guest.id,
+                              data: { inviteThrough: e.target.value },
+                            }).unwrap(),
+                          )
+                        }
+                        className={cn(cellSelect, CHANNEL_SELECT[guest.inviteThrough] ?? CHANNEL_SELECT.WhatsApp)}
+                      >
+                        {INVITE_CHANNELS.map((channel) => (
+                          <option key={channel} value={channel}>
+                            {channel}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <button
+                        type="button"
+                        disabled={rowBusy}
+                        onClick={() =>
+                          runRowAction(guest.id, () =>
+                            sendInvite({ eventId, guestId: guest.id, channel: guest.inviteThrough }).unwrap(),
+                          )
+                        }
+                        className="rounded-md bg-[#6B3416] px-3 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] hover:bg-[#5A2B12] disabled:opacity-60"
+                      >
+                        {rowBusy ? 'Sending…' : guest.rsvpStatus === 'Not Sent' ? 'Send Invitation' : 'Resend Invitation'}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      {guest.rsvpStatus === 'Not Sent' ? (
+                        <span className="text-[13px] text-[#8C7D73]">--</span>
+                      ) : (
+                        <span
+                          className={cn(
+                            'inline-block rounded-md px-2 py-1 text-[11px]',
+                            RSVP_BADGE[guest.rsvpStatus] ?? RSVP_BADGE['Awaiting Response'],
+                          )}
+                        >
+                          {guest.rsvpStatus}
+                        </span>
+                      )}
+                    </td>
                       </>
                     )}
+                    <td className="px-3 py-2.5 text-center text-[13px] text-[#3F342D] dark:text-foreground">
+                      {showParty ? guest.partySize : '--'}
+                    </td>
+                    <td className="max-w-[180px] truncate px-3 py-2.5 text-[13px] text-[#3F342D] dark:text-foreground">
+                      {showParty && guest.preference && guest.preference !== '--' ? guest.preference : '--'}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          aria-label={`Edit ${guest.name}`}
+                          onClick={() => {
+                            setEditing(guest);
+                            setFormOpen(true);
+                          }}
+                          className="rounded p-1 text-[#7A3B18] hover:bg-[#F7EFE6]"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${guest.name}`}
+                          onClick={() => setPendingDelete(guest)}
+                          className="rounded p-1 text-[#B33927] hover:bg-[#FBE4E1]"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })

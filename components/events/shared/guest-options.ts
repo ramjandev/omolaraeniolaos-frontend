@@ -1,6 +1,16 @@
 export const GUEST_TYPES = ['VIP', 'General', 'Family & Friends', 'Speakers & Partners'] as const;
 export type GuestType = (typeof GUEST_TYPES)[number];
 
+/** A Preserved table can seat every guest type. Every other table seats only its own type. */
+export const TABLE_TYPES = [...GUEST_TYPES, 'Preserved'] as const;
+export type TableType = (typeof TABLE_TYPES)[number];
+
+export function tableAcceptsGuest(tableType: string, guestType: string) {
+  const table = tableType === 'Standard' ? 'Preserved' : tableType || 'General';
+  if (table === 'Preserved') return true;
+  return table === (guestType || 'General');
+}
+
 export const RSVP_STATUSES = ['Confirmed', 'Tentative', 'Declined', 'Awaiting Response', 'Not Sent'] as const;
 export type RsvpStatusLabel = (typeof RSVP_STATUSES)[number];
 

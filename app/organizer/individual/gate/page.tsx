@@ -5,6 +5,8 @@ import {
   Plus,
   ChevronDown,
   ArrowUpDown,
+  MapPin,
+  Trash2,
 } from 'lucide-react';
 import { AppShell } from '@/components/shell/AppShell';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -23,14 +26,36 @@ import {
   useAssignGateStaffMutation,
   useGetGateOverviewQuery,
   useInviteGateStaffMutation,
+  useUnassignGateStaffMutation,
+  useRemoveGateStaffMutation,
   type GateStaffMember,
 } from '@/store/Gate/gateApi';
 
+function formatAssignmentDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function readStoredToken() {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('accessToken') || localStorage.getItem('token') || '';
+}
+
 export default function IndividualGateManagementPage() {
-  const { data, isLoading, isError } = useGetGateOverviewQuery();
+  const [canQuery, setCanQuery] = React.useState(false);
+  React.useEffect(() => {
+    setCanQuery(true);
+  }, []);
+  const { data, isLoading, isError, refetch } = useGetGateOverviewQuery(undefined, {
+    skip: !canQuery || !readStoredToken(),
+    refetchOnMountOrArgChange: true,
+  });
   const [inviteGateStaff] = useInviteGateStaffMutation();
   const [assignGateStaff] = useAssignGateStaffMutation();
   const [assignAllGateStaff] = useAssignRosterGateStaffMutation();
+  const [unassignGateStaff] = useUnassignGateStaffMutation();
+  const [removeGateStaff, { isLoading: isDeletingStaff }] = useRemoveGateStaffMutation();
 
   const overview = data?.data;
   const staffList = overview?.staff ?? [];
@@ -66,13 +91,18 @@ export default function IndividualGateManagementPage() {
 
   // View Member Modal State
   const [viewMember, setViewMember] = React.useState<GateStaffMember | null>(null);
+  const [staffToDelete, setStaffToDelete] = React.useState<GateStaffMember | null>(null);
+  const [removingEventId, setRemovingEventId] = React.useState<string | null>(null);
 
   const filteredStaff = React.useMemo(() => {
     const rows = staffList.filter((staff) => {
       const haystack = `${staff.fullName} ${staff.email} ${staff.currentAssignment ?? ''}`.toLowerCase();
       const matchesSearch = haystack.includes(searchQuery.trim().toLowerCase());
       const matchesEvent =
-        selectedEventFilter === 'all' || staff.currentEventId === selectedEventFilter;
+        selectedEventFilter === 'all' ||
+        staff.isOwner ||
+        staff.currentEventId === selectedEventFilter ||
+        (staff.assignments ?? []).some((item) => item.eventId === selectedEventFilter);
       return matchesSearch && matchesEvent;
     });
     return [...rows].sort((a, b) =>
@@ -81,6 +111,20 @@ export default function IndividualGateManagementPage() {
         : b.assignedEventsCount - a.assignedEventsCount,
     );
   }, [staffList, searchQuery, selectedEventFilter, sortDirection]);
+
+  React.useEffect(() => {
+    if (!viewMember) return;
+    const fresh = staffList.find((staff) => staff.id === viewMember.id);
+    if (!fresh) {
+      setViewMember(null);
+      return;
+    }
+    const previous = (viewMember.assignments ?? []).map((item) => item.id).join(',');
+    const next = (fresh.assignments ?? []).map((item) => item.id).join(',');
+    if (previous !== next || fresh.phone !== viewMember.phone) {
+      setViewMember(fresh);
+    }
+  }, [staffList, viewMember]);
 
   const assignableSelectedIds = selectedStaffIds.filter((id) => {
     const member = staffList.find((staff) => staff.id === id);
@@ -153,6 +197,29 @@ export default function IndividualGateManagementPage() {
       setIsAssignOpen(false);
     } catch {
       // The API layer already shows the error toast.
+    }
+  };
+
+  const handleDeleteStaff = async () => {
+    if (!staffToDelete || isDeletingStaff) return;
+    try {
+      await removeGateStaff({ staffId: staffToDelete.id }).unwrap();
+      if (viewMember?.id === staffToDelete.id) setViewMember(null);
+      setStaffToDelete(null);
+    } catch {
+      // The API layer already shows the error toast.
+    }
+  };
+
+  const handleRemoveAssignment = async (eventId: string) => {
+    if (!viewMember || removingEventId) return;
+    setRemovingEventId(eventId);
+    try {
+      await unassignGateStaff({ staffId: viewMember.id, eventId }).unwrap();
+    } catch {
+      // The API layer already shows the error toast.
+    } finally {
+      setRemovingEventId(null);
     }
   };
 
@@ -303,26 +370,36 @@ export default function IndividualGateManagementPage() {
                     </button>
                   </th>
                   <th className="py-3.5 px-4">Current Assignment</th>
-                  <th className="py-3.5 px-4 text-center w-36">Action</th>
+                  <th className="py-3.5 px-4 text-center w-44">Action</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-[#F2ECE4] dark:divide-border/60">
-                {isLoading && (
+                {(!canQuery || isLoading) && (
                   <tr>
                     <td colSpan={6} className="py-10 text-center text-[#736B66]">
                       Loading gate staff…
                     </td>
                   </tr>
                 )}
-                {isError && !isLoading && (
+                {canQuery && !readStoredToken() && !isLoading && (
                   <tr>
                     <td colSpan={6} className="py-10 text-center text-[#736B66]">
-                      Gate staff could not be loaded. Sign in and try again.
+                      Sign in to manage gate staff.
                     </td>
                   </tr>
                 )}
-                {!isLoading && !isError && filteredStaff.length === 0 && (
+                {isError && !isLoading && (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-[#736B66]">
+                      Gate staff could not be loaded.
+                      <button type="button" onClick={() => refetch()} className="ml-2 underline">
+                        Try again
+                      </button>
+                    </td>
+                  </tr>
+                )}
+                {canQuery && !isLoading && !isError && readStoredToken() && filteredStaff.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-10 text-center text-[#736B66]">
                       No gate staff yet. Invite someone to start the roster.
@@ -411,6 +488,16 @@ export default function IndividualGateManagementPage() {
                               Assign
                             </button>
                           )}
+                          {!staff.isOwner && (
+                            <button
+                              type="button"
+                              aria-label={`Delete ${staff.fullName}`}
+                              onClick={() => setStaffToDelete(staff)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-[#C2410C] hover:bg-[#FFF1EC]"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -421,9 +508,9 @@ export default function IndividualGateManagementPage() {
           </div>
         </div>
 
-        {/* Modal: Invite Gate Staff (Screenshots 3 & 4) */}
+        {/* Modal: Invite Gate Staff */}
         <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-          <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
+          <DialogContent className="sm:max-w-lg p-6 rounded-2xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-2">
               <DialogTitle className="font-serif text-xl font-bold text-[#261710] dark:text-foreground">
                 Invite Gate Staff
@@ -658,64 +745,139 @@ export default function IndividualGateManagementPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Modal: View Staff Member Details */}
+        {/* Modal: View staff profile */}
         <Dialog open={Boolean(viewMember)} onOpenChange={(open) => !open && setViewMember(null)}>
-          <DialogContent className="sm:max-w-sm p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
-            <DialogHeader>
-              <DialogTitle className="font-serif text-lg font-bold text-[#261710] dark:text-foreground">
-                Staff Member Details
-              </DialogTitle>
-            </DialogHeader>
-
+          <DialogContent className="sm:max-w-[420px] p-0 rounded-2xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl overflow-hidden">
+            <DialogTitle className="sr-only">
+              {viewMember
+                ? `${viewMember.fullName.replace(' (You)', '')} profile`
+                : 'Staff profile'}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Contact details and event assignments for this gate staff member.
+            </DialogDescription>
             {viewMember && (
-              <div className="space-y-3 pt-2 text-xs">
-                <div className="flex items-center gap-3 pb-3 border-b border-border">
-                  <Avatar className="w-12 h-12 border border-[#EBE3D9]">
+              <div className="px-6 pt-8 pb-6">
+                <div className="flex flex-col items-center text-center">
+                  <Avatar className="w-20 h-20 border border-[#EBE3D9]">
                     {viewMember.avatarUrl ? (
                       <AvatarImage src={viewMember.avatarUrl} alt={viewMember.fullName} />
                     ) : null}
-                    <AvatarFallback className="bg-[#FAF6F0] text-[#8C4B24] font-medium text-sm">
-                      {viewMember.fullName.slice(0, 2).toUpperCase()}
+                    <AvatarFallback className="bg-[#FAF6F0] text-[#8C4B24] font-medium text-lg">
+                      {viewMember.fullName.replace(' (You)', '').slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <div className="font-bold text-sm text-[#261710] dark:text-foreground">
-                      {viewMember.fullName}
-                    </div>
-                    <div className="text-muted-foreground">{viewMember.email}</div>
-                    <div className="text-[#8C4B24] font-medium text-[11px] mt-0.5">
-                      {viewMember.role}
-                    </div>
+                  <div className="mt-3 font-semibold text-base text-[#261710] dark:text-foreground">
+                    {viewMember.fullName.replace(' (You)', '')}
+                  </div>
+                  <div className="text-sm text-[#736B66] dark:text-muted-foreground">
+                    {viewMember.role}
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Phone:</span>
-                    <span className="font-medium text-foreground">{viewMember.phone || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Assigned Event:</span>
-                    <span className="font-medium text-foreground text-right max-w-[200px] truncate">
-                      {viewMember.currentAssignment || 'Not assigned'}
+                <div className="mt-6 border-t border-[#EBE3D9] dark:border-border pt-4">
+                  <div className="text-sm font-semibold text-[#261710] dark:text-foreground">Contact</div>
+                  <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                    <span className="text-[#736B66]">Email</span>
+                    <span className="font-medium text-[#261710] dark:text-foreground truncate">
+                      {viewMember.email}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Gate Post:</span>
-                    <span className="font-medium text-[#8C4B24]">
-                      {viewMember.gateNumber || 'Not assigned'}
+                  <div className="mt-2 flex items-center justify-between gap-4 text-sm">
+                    <span className="text-[#736B66]">Phone Number</span>
+                    <span className="font-medium text-[#261710] dark:text-foreground">
+                      {viewMember.phone || 'Not added'}
                     </span>
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => setViewMember(null)}
-                  className="w-full mt-4 bg-[#6E3B1C] hover:bg-[#5C3117] text-white text-xs rounded-xl"
-                >
-                  Close
-                </Button>
+                <div className="mt-4 space-y-3">
+                  {(viewMember.assignments ?? []).map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="rounded-xl bg-[#FAF8F5] dark:bg-muted/30 border border-[#EBE3D9] dark:border-border px-4 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm text-[#261710] dark:text-foreground truncate">
+                            {assignment.eventTitle}
+                          </div>
+                          <div className="mt-1 flex items-center gap-1.5 text-xs text-[#8C4B24]">
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{assignment.gateNumber}</span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-[#A39A93]">Removes from event</div>
+                        </div>
+                        <div className="text-xs text-[#736B66] shrink-0">
+                          {formatAssignmentDate(assignment.assignedAt)}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={removingEventId === assignment.eventId}
+                        onClick={() => handleRemoveAssignment(assignment.eventId)}
+                        className="mt-2 text-xs font-semibold text-[#C2410C] hover:text-[#9A3412] disabled:opacity-60"
+                      >
+                        {removingEventId === assignment.eventId ? 'Removing…' : 'Removes Assignment'}
+                      </button>
+                    </div>
+                  ))}
+                  {!viewMember.isOwner && (viewMember.assignments ?? []).length === 0 && (
+                    <div className="rounded-xl bg-[#FAF8F5] dark:bg-muted/30 border border-[#EBE3D9] px-4 py-3 text-xs text-[#736B66]">
+                      No event assigned yet.
+                    </div>
+                  )}
+                  {viewMember.isOwner && (
+                    <div className="rounded-xl bg-[#FAF8F5] dark:bg-muted/30 border border-[#EBE3D9] px-4 py-3 text-xs text-[#736B66]">
+                      You manage every gate for your events.
+                    </div>
+                  )}
+                </div>
+
+                {!viewMember.isOwner && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const member = viewMember;
+                      setViewMember(null);
+                      handleOpenAssign(member);
+                    }}
+                    className="w-full mt-5 bg-[#241710] hover:bg-[#3D2518] text-white font-semibold text-sm py-3 rounded-xl"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Assign to Event
+                  </Button>
+                )}
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={Boolean(staffToDelete)} onOpenChange={(open) => !open && setStaffToDelete(null)}>
+          <DialogContent className="sm:max-w-md rounded-2xl bg-white p-6 dark:bg-[#1A110B]">
+            <DialogHeader>
+              <DialogTitle className="font-serif text-xl text-[#261710] dark:text-foreground">
+                Delete gate staff
+              </DialogTitle>
+              <DialogDescription className="text-sm text-[#736B66]">
+                {staffToDelete
+                  ? `${staffToDelete.fullName} will be removed from your roster and will no longer be able to sign in.`
+                  : 'This gate staff member will be removed.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setStaffToDelete(null)} className="rounded-xl">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={isDeletingStaff}
+                onClick={handleDeleteStaff}
+                className="rounded-xl bg-[#C2410C] text-white hover:bg-[#9A3412]"
+              >
+                {isDeletingStaff ? 'Deleting…' : 'Delete'}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

@@ -31,6 +31,7 @@ import {
   Calendar,
   UserCircle,
 } from 'lucide-react';
+import { ImHome3 } from 'react-icons/im';
 import { Badge } from '@/components/ui/badge';
 import { NavItem } from './nav-config';
 
@@ -61,6 +62,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Compass,
   Calendar,
   UserCircle,
+  ImHome3,
 };
 
 export function SidebarNavLinks({
