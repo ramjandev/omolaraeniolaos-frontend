@@ -67,7 +67,15 @@ export async function dispatchCoordinatedMessage(body: {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error('Dispatch failed');
-  return readJson(res);
+  return readJson<{
+    deliveries?: Array<{
+      channel: string;
+      status: string;
+      to?: string;
+      deliveredTo?: string;
+      error?: string;
+    }>;
+  }>(res);
 }
 
 export interface GuestPass {

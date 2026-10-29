@@ -50,6 +50,21 @@ function mapRsvp(status: string): CommGuest['rsvpStatus'] {
   return 'No Response';
 }
 
+function deliveryNotice(
+  deliveries: Array<{ channel: string; status: string; error?: string; deliveredTo?: string; to?: string }> | undefined,
+  successText: string,
+) {
+  const rows = deliveries || [];
+  const failed = rows.filter((row) => row.status === 'failed');
+  const email = rows.find((row) => row.channel === 'EMAIL' && row.status !== 'failed');
+  const inbox = email?.deliveredTo || email?.to;
+  const parts = [
+    inbox ? `Email delivered to ${inbox}.` : '',
+    ...failed.map((row) => `${row.channel} was not delivered${row.error ? `: ${row.error}` : '.'}`),
+  ].filter(Boolean);
+  return parts.length ? parts.join(' ') : successText;
+}
+
 interface GuestCommunicationsWorkspaceProps {
   organizer: OrganizerKind;
   eventId: string;
@@ -214,7 +229,7 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
   const handleSendReminder = async (guest: CommGuest) => {
     const notice = `Hello ${guest.name}, please confirm your RSVP for ${eventTitle}.`;
     try {
-      await dispatchCoordinatedMessage({
+      const result = await dispatchCoordinatedMessage({
         eventId,
         attendeeIds: [guest.id],
         channels: ['WHATSAPP', 'EMAIL'],
@@ -223,9 +238,9 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
       });
       const refreshed = await loadGuests(true);
       const updated = refreshed.find((item) => item.id === guest.id);
-      showToast(updated?.reminderStatus === 'Sent'
+      showToast(deliveryNotice(result.deliveries, updated?.reminderStatus === 'Sent'
         ? `Reminder sent to ${guest.name}.`
-        : `The reminder for ${guest.name} was not delivered.`);
+        : `The reminder for ${guest.name} was not delivered.`));
     } catch {
       showToast(`The reminder for ${guest.name} could not be sent.`);
     }
@@ -251,7 +266,7 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
       channels: ['WHATSAPP', 'EMAIL'],
       subject: 'Message from your host',
       content: newMsg.text,
-    }).then(() => showToast('Message sent.'))
+    }).then((result) => showToast(deliveryNotice(result.deliveries, 'Message sent.')))
       .catch(() => showToast('The message could not be sent.'));
   };
 
