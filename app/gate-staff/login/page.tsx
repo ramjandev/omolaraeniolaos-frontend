@@ -9,6 +9,8 @@ import { useLoginUserMutation } from '@/store/Auth/authApi';
 import { setCredentials } from '@/store/Auth/authSlice';
 import { useAppDispatch } from '@/store/store';
 
+const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+
 function GateStaffLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,6 +41,14 @@ function GateStaffLogin() {
           user,
         }),
       );
+      const inviteToken = searchParams.get('token') || '';
+      if (inviteToken) {
+        await fetch(`${API_ROOT}/individual/gate/invitation/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: inviteToken }),
+        });
+      }
       window.location.assign('/gate-staff');
     } catch (error: unknown) {
       const apiError = error as { data?: { message?: string }; message?: string };

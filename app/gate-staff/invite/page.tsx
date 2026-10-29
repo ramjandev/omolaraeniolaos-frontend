@@ -61,9 +61,16 @@ function GateStaffInvitation() {
     };
   }, [token]);
 
+  const loginHref = () => {
+    const params = new URLSearchParams();
+    if (details?.email) params.set('email', details.email);
+    if (token) params.set('token', token);
+    const query = params.toString();
+    return query ? `/gate-staff/login?${query}` : '/gate-staff/login';
+  };
+
   const accept = () => {
-    const email = details?.email ? `?email=${encodeURIComponent(details.email)}` : '';
-    router.push(`/gate-staff/login${email}`);
+    router.push(loginHref());
   };
 
   return (
@@ -126,7 +133,7 @@ function GateStaffInvitation() {
           </div>
 
           <div className="text-center pt-2">
-            <Link href="/gate-staff/login" className="text-xs text-[#70665F] hover:text-[#1F1916] transition-colors">
+            <Link href={loginHref()} className="text-xs text-[#70665F] hover:text-[#1F1916] transition-colors">
               Already have an account? <span className="underline underline-offset-2 font-medium text-[#1F1916]">Log in to accept</span>
             </Link>
           </div>
