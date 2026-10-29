@@ -2,358 +2,253 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {
-  Calendar,
-  Phone,
-  Mail,
-  Building,
-  Clock,
-  Plus,
-  CalendarCheck,
-  CheckCircle2,
-  CalendarDays,
-  FileText,
-  User,
-  ArrowRight,
-  MapPin,
-  ExternalLink,
-} from 'lucide-react';
+import { Calendar, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AgencyClient } from '@/lib/mock-data/agency';
+import {
+  getAgencyClient,
+  type AgencyClientDetail,
+  type AgencyClientEvent,
+} from '@/lib/api/agency-dashboard';
 
 type Tab = 'overview' | 'events' | 'activity';
 
-export function ClientDetailsView({ client }: { client: AgencyClient }) {
-  const [currentTab, setCurrentTab] = React.useState<Tab>('overview');
+export function ClientDetailsView({ clientId }: { clientId: string }) {
+  const [tab, setTab] = React.useState<Tab>('overview');
+  const [client, setClient] = React.useState<AgencyClientDetail | null>(null);
+  const [error, setError] = React.useState('');
+
+  React.useEffect(() => {
+    let active = true;
+    setClient(null);
+    setError('');
+    getAgencyClient(clientId)
+      .then((row) => {
+        if (active) setClient(row);
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : 'Client could not be loaded');
+      });
+    return () => {
+      active = false;
+    };
+  }, [clientId]);
+
+  if (error) return <p className="text-sm text-[#B33927]">{error}</p>;
+  if (!client) return <p className="text-sm text-[#736B66]">Loading client…</p>;
+
+  const archived = client.status === 'archived';
+  const person = client.contactPerson || client.name;
+  const since = client.createdAt
+    ? new Date(client.createdAt).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '—';
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Hero Profile Card matching Client details.png */}
-      <Card className="rounded-2xl border-border/80 bg-card shadow-xs overflow-hidden">
-        <CardContent className="p-6 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <Avatar className="w-16 h-16 md:w-20 md:h-20 rounded-2xl border-2 border-[#D4A373]/30 shadow-xs">
-                <AvatarImage src={client.logo} alt={client.name} />
-                <AvatarFallback className="rounded-2xl text-lg font-bold bg-[#6E3B1C]/10 text-[#6E3B1C]">
-                  {client.name.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs text-[#8C7D73]">
+          <Link href="/organizer/agency/clients" className="hover:underline">
+            Clients
+          </Link>
+          <span className="mx-1.5 text-[#C4A574]">/</span>
+          <span className="text-[#C4A574]">Client Details</span>
+        </p>
+        <h1 className="mt-2 font-serif text-4xl font-medium text-[#1F140E]">Client Details</h1>
+        <p className="mt-1 text-sm text-[#736B66]">
+          A complete view of the relationship and event history.
+        </p>
+      </div>
 
-              <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <h1 className="font-serif font-bold text-xl md:text-2xl text-foreground">
-                    {client.name}
-                  </h1>
-                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-300 dark:border-emerald-800 text-[11px] font-semibold px-2.5 py-0.5 rounded-lg capitalize">
-                    {client.status}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground font-medium">
-                  {client.type}
-                </p>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-[#6E3B1C]" />
-                    {client.contactEmail}
-                  </span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-[#6E3B1C]" />
-                    {client.contactPhone}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              asChild
-              className="h-10 px-6 text-xs font-semibold rounded-xl bg-[#6E3B1C] hover:bg-[#5C3117] text-white shadow-xs shrink-0"
-            >
-              <Link href={`/organizer/agency/events/create?clientId=${client.id}`}>
-                <Plus className="w-4 h-4 mr-1.5" />
-                <span>+ Create Event</span>
-              </Link>
-            </Button>
-          </div>
-
-          {/* Sub-tabs Bar: Overview, Events, Activity */}
-          <div className="flex items-center gap-6 border-b border-border/80 mt-8 -mb-2">
-            <button
-              type="button"
-              onClick={() => setCurrentTab('overview')}
-              className={`pb-3 text-xs font-semibold transition-colors relative cursor-pointer ${
-                currentTab === 'overview'
-                  ? 'text-[#6E3B1C]'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Overview
-              {currentTab === 'overview' && (
-                <div className="absolute bottom-0 inset-x-0 h-0.5 bg-[#6E3B1C] rounded-full" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentTab('events')}
-              className={`pb-3 text-xs font-semibold transition-colors relative cursor-pointer ${
-                currentTab === 'events'
-                  ? 'text-[#6E3B1C]'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Events ({client.events?.length || 5})
-              {currentTab === 'events' && (
-                <div className="absolute bottom-0 inset-x-0 h-0.5 bg-[#6E3B1C] rounded-full" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentTab('activity')}
-              className={`pb-3 text-xs font-semibold transition-colors relative cursor-pointer ${
-                currentTab === 'activity'
-                  ? 'text-[#6E3B1C]'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Activity
-              {currentTab === 'activity' && (
-                <div className="absolute bottom-0 inset-x-0 h-0.5 bg-[#6E3B1C] rounded-full" />
-              )}
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tab 1: Overview matching Client details.png */}
-      {currentTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Metrics & Contact Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Metric Cards Row */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="rounded-2xl border-border/80 bg-card p-5 space-y-1">
-                <span className="text-2xl md:text-3xl font-serif font-bold text-foreground">
-                  {client.events?.length || client.activeEventsCount + client.completedEventsCount || 5}
-                </span>
-                <p className="text-xs text-muted-foreground">Total events</p>
-              </Card>
-
-              <Card className="rounded-2xl border-border/80 bg-card p-5 space-y-1">
-                <span className="text-2xl md:text-3xl font-serif font-bold text-[#6E3B1C]">
-                  {client.upcomingEventsCount || 2}
-                </span>
-                <p className="text-xs text-muted-foreground">Upcoming</p>
-              </Card>
-
-              <Card className="rounded-2xl border-border/80 bg-card p-5 space-y-1">
-                <span className="text-2xl md:text-3xl font-serif font-bold text-foreground">
-                  {client.completedEventsCount || 3}
-                </span>
-                <p className="text-xs text-muted-foreground">Completed</p>
-              </Card>
-            </div>
-
-            {/* Contact Details Card */}
-            <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
-              <CardContent className="p-6 space-y-4">
-                <h3 className="font-serif font-bold text-base text-foreground">
-                  Contact details
-                </h3>
-
-                <div className="divide-y divide-border/60 text-xs">
-                  <div className="py-3 flex items-center justify-between">
-                    <span className="text-muted-foreground">Email</span>
-                    <span className="font-medium text-foreground">{client.contactEmail}</span>
-                  </div>
-
-                  <div className="py-3 flex items-center justify-between">
-                    <span className="text-muted-foreground">Phone</span>
-                    <span className="font-medium text-foreground">{client.contactPhone}</span>
-                  </div>
-
-                  <div className="py-3 flex items-center justify-between">
-                    <span className="text-muted-foreground">Organization</span>
-                    <span className="font-medium text-foreground">{client.organization}</span>
-                  </div>
-
-                  <div className="py-3 flex items-center justify-between">
-                    <span className="text-muted-foreground">Client since</span>
-                    <span className="font-medium text-foreground">{client.clientSince}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column: Recent Activity Timeline */}
-          <div className="space-y-4">
-            <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
-              <CardContent className="p-6 space-y-5">
-                <h3 className="font-serif font-bold text-base text-foreground">
-                  Recent activity
-                </h3>
-
-                <div className="space-y-4 relative before:absolute before:inset-y-2 before:left-3.5 before:w-0.5 before:bg-border/60">
-                  {client.activities && client.activities.length > 0 ? (
-                    client.activities.map((act) => (
-                      <div key={act.id} className="relative flex items-start gap-4">
-                        <div className="w-7 h-7 rounded-full bg-[#6E3B1C]/10 text-[#6E3B1C] flex items-center justify-center shrink-0 z-10">
-                          {act.iconType === 'calendar' ? (
-                            <Calendar className="w-3.5 h-3.5" />
-                          ) : act.iconType === 'user' ? (
-                            <User className="w-3.5 h-3.5" />
-                          ) : act.iconType === 'check' ? (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          ) : (
-                            <FileText className="w-3.5 h-3.5" />
-                          )}
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-semibold text-foreground">
-                            {act.title}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground leading-tight">
-                            {act.description}
-                          </p>
-                          <span className="text-[10px] text-muted-foreground/70 block pt-0.5">
-                            {act.timestamp}
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No recent activity recorded.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: Events matching Client details-1.png */}
-      {currentTab === 'events' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+      <div className="rounded-2xl border border-[#EBE3D9] bg-white p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="grid size-14 place-items-center rounded-full bg-[#F3E6D8] text-lg font-semibold text-[#6E3B1C]">
+              {person.slice(0, 1).toUpperCase()}
+            </span>
             <div>
-              <h2 className="font-serif font-bold text-lg text-foreground">Client Productions</h2>
-              <p className="text-xs text-muted-foreground">All upcoming and archived events for {client.name}</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-[#1F140E]">{client.name}</h2>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    archived ? 'bg-[#F4F1EC] text-[#6F6258]' : 'bg-[#E7F6EC] text-[#2F6B4F]'
+                  }`}
+                >
+                  {archived ? 'Archive' : 'Active'}
+                </span>
+              </div>
+              <p className="text-sm text-[#736B66]">
+                Individual client{client.industry ? ` · ${client.industry}` : ''}
+              </p>
+              <p className="text-sm text-[#3F342C]">
+                {client.contactEmail}
+                {client.contactPhone ? ` · ${client.contactPhone}` : ''}
+              </p>
             </div>
-            <Button asChild size="sm" className="bg-[#6E3B1C] text-white hover:bg-[#5C3117] text-xs">
-              <Link href={`/organizer/agency/events/create?clientId=${client.id}`}>
-                + New Event
-              </Link>
-            </Button>
           </div>
+          <Button
+            asChild
+            className="h-10 rounded-xl bg-[#6E3B1C] px-4 text-xs font-semibold text-white hover:bg-[#5C3117]"
+          >
+            <Link href={`/organizer/agency/events/create?clientId=${client.id}`}>
+              <Plus className="mr-1.5 size-4" />
+              Create Event
+            </Link>
+          </Button>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {client.events?.map((ev) => (
-              <Card
-                key={ev.id}
-                className="rounded-2xl border-border/80 bg-card overflow-hidden hover:border-[#6E3B1C]/40 hover:shadow-md transition-all flex flex-col justify-between"
-              >
-                <div>
-                  {ev.image && (
-                    <div className="relative h-40 w-full overflow-hidden bg-muted">
-                      <img
-                        src={ev.image}
-                        alt={ev.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-3 right-3">
-                        <Badge
-                          className={`text-[10px] font-semibold ${
-                            ev.status === 'Planning'
-                              ? 'bg-amber-500 text-white'
-                              : ev.status === 'Confirmed'
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-slate-600 text-white'
-                          }`}
-                        >
-                          {ev.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
+        <div className="mt-5 flex gap-6 border-t border-[#F4EFEA] pt-3 text-sm">
+          {(['overview', 'events', 'activity'] as Tab[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
+              className={`border-b-2 pb-2 capitalize ${
+                tab === item
+                  ? 'border-[#6E3B1C] font-medium text-[#6E3B1C]'
+                  : 'border-transparent text-[#736B66]'
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
 
-                  <div className="p-5 space-y-3">
-                    <div>
-                      <span className="text-[11px] font-semibold text-[#6E3B1C] uppercase tracking-wider">
-                        {ev.type}
+      {tab === 'overview' && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5">
+            <h3 className="text-sm font-semibold text-[#1F140E]">Client summary</h3>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <Summary value={client.summary.totalEvents} label="Total events" />
+              <Summary value={client.summary.upcoming} label="Upcoming" />
+              <Summary value={client.summary.completed} label="Completed" />
+            </div>
+            <h3 className="mt-6 text-sm font-semibold text-[#1F140E]">Contact information</h3>
+            <dl className="mt-3 space-y-1.5 text-sm text-[#3F342C]">
+              <div>Email · {client.contactEmail}</div>
+              <div>Phone · {client.contactPhone || '—'}</div>
+              <div>Organization · {client.industry || '—'}</div>
+              <div>Client since · {since}</div>
+              {client.notes ? <div>Notes · {client.notes}</div> : null}
+            </dl>
+          </section>
+          <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5">
+            <h3 className="text-sm font-semibold text-[#1F140E]">Recent activity</h3>
+            {client.activity.length === 0 ? (
+              <p className="mt-4 text-sm text-[#736B66]">No event activity yet.</p>
+            ) : (
+              <ul className="mt-4 space-y-4">
+                {client.activity.map((item) => (
+                  <li key={item.id} className="flex gap-3">
+                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#6F6258]" />
+                    <span>
+                      <span className="block text-sm font-medium text-[#1F140E]">{item.title}</span>
+                      <span className="block text-xs text-[#736B66]">
+                        {item.detail} ·{' '}
+                        {new Date(item.occurredAt).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
                       </span>
-                      <h3 className="font-serif font-bold text-base text-foreground mt-0.5 line-clamp-1">
-                        {ev.title}
-                      </h3>
-                    </div>
-
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-[#6E3B1C]" />
-                        <span>{ev.date}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 line-clamp-1">
-                        <MapPin className="w-3.5 h-3.5 text-[#6E3B1C]" />
-                        <span>{ev.location}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-[#6E3B1C]" />
-                        <span>{ev.guestsCount} Guests planned</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-5 pt-0">
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="w-full h-9 text-xs rounded-xl hover:bg-[#6E3B1C] hover:text-white hover:border-[#6E3B1C] transition-colors justify-between"
-                  >
-                    <Link href="/organizer/agency/events">
-                      <span>View Guest List</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       )}
 
-      {/* Tab 3: Full Activity Log */}
-      {currentTab === 'activity' && (
-        <Card className="rounded-2xl border-border/80 bg-card p-6">
-          <div className="space-y-4">
-            <h3 className="font-serif font-bold text-base text-foreground">
-              Audit Trail &amp; Production History
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Complete historical log of contracts, event launches, and client notifications.
+      {tab === 'events' && (
+        <div>
+          <p className="mb-3 text-right text-xs text-[#8C7D73]">{client.events.length} events</p>
+          {client.events.length === 0 ? (
+            <p className="rounded-2xl border border-[#EBE3D9] bg-white p-6 text-sm text-[#736B66]">
+              This client has no events yet.
             </p>
-
-            <div className="divide-y divide-border/60 pt-2 text-xs">
-              {client.activities?.map((act) => (
-                <div key={act.id} className="py-3.5 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-foreground">{act.title}</p>
-                    <p className="text-muted-foreground">{act.description}</p>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground/80 font-mono">
-                    {act.timestamp}
-                  </span>
-                </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {client.events.map((event) => (
+                <EventCard key={event.id} event={event} />
               ))}
             </div>
-          </div>
-        </Card>
+          )}
+        </div>
+      )}
+
+      {tab === 'activity' && (
+        <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5">
+          {client.activity.length === 0 ? (
+            <p className="text-sm text-[#736B66]">No event activity yet.</p>
+          ) : (
+            <ul className="space-y-4">
+              {client.activity.map((item) => (
+                <li key={item.id} className="text-sm text-[#3F342C]">
+                  <span className="font-medium text-[#1F140E]">{item.title}</span> · {item.detail} ·{' '}
+                  {new Date(item.occurredAt).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </div>
+  );
+}
+
+function Summary({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-xl bg-[#FBF8F4] px-3 py-3">
+      <p className="font-serif text-2xl text-[#1F140E]">{value}</p>
+      <p className="text-xs text-[#736B66]">{label}</p>
+    </div>
+  );
+}
+
+function EventCard({ event }: { event: AgencyClientEvent }) {
+  const venue = [event.venueName, event.city].filter(Boolean).join(', ') || 'Venue to be confirmed';
+  const date = new Date(event.startDate).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  const tone =
+    event.uiStatus === 'Confirmed'
+      ? 'bg-[#E7F6EC] text-[#2F6B4F]'
+      : event.uiStatus === 'Completed'
+        ? 'bg-[#F4F1EC] text-[#6F6258]'
+        : event.uiStatus === 'Archive'
+          ? 'bg-[#F4F1EC] text-[#6F6258]'
+          : 'bg-[#F8E8D8] text-[#A15C2A]';
+
+  return (
+    <Link
+      href={`/organizer/agency/events/${event.id}`}
+      className="overflow-hidden rounded-2xl border border-[#EBE3D9] bg-white"
+    >
+      <img
+        src={event.coverImageUrl || '/images/banner.png'}
+        alt=""
+        className="h-36 w-full object-cover"
+      />
+      <div className="space-y-1 p-4">
+        <p className="flex items-center gap-1.5 text-xs text-[#736B66]">
+          <Calendar className="size-3.5" />
+          {date}
+        </p>
+        <p className="font-medium text-[#1F140E]">{event.title}</p>
+        <p className="text-sm text-[#736B66]">{venue}</p>
+        <span className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${tone}`}>
+          {event.uiStatus}
+        </span>
+      </div>
+    </Link>
   );
 }

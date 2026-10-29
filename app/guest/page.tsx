@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getGuestPass, submitGuestRsvp, type GuestPass } from '@/lib/api/platform';
+import { getGuestPass, submitGuestRsvp, submitVoiceRsvp, type GuestPass } from '@/lib/api/platform';
 import {
   ArrowLeft,
   MoreVertical,
@@ -90,6 +90,14 @@ export default function GuestConversationalRsvpPage() {
   const [recordedAudioReady, setRecordedAudioReady] = React.useState<boolean>(false);
   const [hasVoiceResponse, setHasVoiceResponse] = React.useState<boolean>(false);
   const [isPlayingAudio, setIsPlayingAudio] = React.useState<boolean>(false);
+  const [voiceError, setVoiceError] = React.useState('');
+  const [voiceSending, setVoiceSending] = React.useState(false);
+  const [voiceTranscript, setVoiceTranscript] = React.useState('');
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+  const audioBlobRef = React.useRef<Blob | null>(null);
+  const audioUrlRef = React.useRef<string>('');
+  const audioPlayerRef = React.useRef<HTMLAudioElement | null>(null);
 
   // Chat message input state
   const [inputMessage, setInputMessage] = React.useState<string>('');
@@ -113,22 +121,125 @@ export default function GuestConversationalRsvpPage() {
     return () => clearInterval(interval);
   }, [isRecording]);
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setRecordingSeconds(0);
+  const speechLanguage = (code: LanguageCode) => {
+    if (code === 'yo') return 'yo-NG';
+    if (code === 'ha') return 'ha-NG';
+    if (code === 'ig') return 'ig-NG';
+    if (code === 'pcm') return 'pcm';
+    return 'en-US';
+  };
+
+  const blobToBase64 = (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const value = String(reader.result || '');
+        resolve(value.includes(',') ? value.split(',')[1] : value);
+      };
+      reader.onerror = () => reject(new Error('The recording could not be read'));
+      reader.readAsDataURL(blob);
+    });
+
+  const handleStartRecording = async () => {
+    setVoiceError('');
     setRecordedAudioReady(false);
+    audioBlobRef.current = null;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferred = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((type) =>
+        typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type),
+      );
+      const recorder = new MediaRecorder(stream, preferred ? { mimeType: preferred } : undefined);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        audioBlobRef.current = blob;
+        if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = URL.createObjectURL(blob);
+        stream.getTracks().forEach((track) => track.stop());
+        setRecordedAudioReady(blob.size > 0);
+        if (!blob.size) setVoiceError('The recording was empty. Try again.');
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+    } catch {
+      setIsRecording(false);
+      setVoiceError('Allow microphone access in the browser, then start the recording again.');
+    }
   };
 
   const handleStopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
     setIsRecording(false);
-    setRecordedAudioReady(true);
   };
 
-  const handleSendVoiceNote = () => {
-    setShowVoiceModal(false);
-    setHasVoiceResponse(true);
-    setRsvpStatus('accepted');
-    void persistRsvp('accepted');
+  const handleSendVoiceNote = async () => {
+    const blob = audioBlobRef.current;
+    if (!blob || voiceSending) return;
+    setVoiceSending(true);
+    setVoiceError('');
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const result = await submitVoiceRsvp({
+        audioBase64: await blobToBase64(blob),
+        mimeType: blob.type || 'audio/webm',
+        languageCode: speechLanguage(selectedLang),
+        attendeeId: params.get('attendeeId'),
+        eventId: params.get('eventId'),
+      });
+      const status =
+        result.rsvpStatus === 'DECLINED'
+          ? 'declined'
+          : result.rsvpStatus === 'TENTATIVE'
+            ? 'tentative'
+            : 'accepted';
+      setVoiceTranscript(result.transcribedText);
+      setGuestCount(Math.max(1, result.guestCount || 1));
+      setHasVoiceResponse(true);
+      setRsvpStatus(status);
+      setRecordedAudioReady(false);
+      try {
+        await submitGuestRsvp({
+          attendeeId: params.get('attendeeId'),
+          eventId: params.get('eventId'),
+          qrCode: params.get('qr'),
+          status,
+          partySize: result.guestCount,
+          dietary: result.dietaryOrNotes || diet,
+          language: selectedLang,
+          notes: `Voice RSVP: ${result.transcribedText}`,
+        });
+      } catch {
+        // The voice endpoint already stored the transcript and RSVP.
+      }
+      setShowVoiceModal(false);
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : 'Voice RSVP could not be sent');
+    } finally {
+      setVoiceSending(false);
+    }
+  };
+
+  const toggleVoicePlayback = () => {
+    const url = audioUrlRef.current;
+    if (!url) return;
+    if (!audioPlayerRef.current) audioPlayerRef.current = new Audio();
+    const player = audioPlayerRef.current;
+    if (isPlayingAudio) {
+      player.pause();
+      setIsPlayingAudio(false);
+      return;
+    }
+    player.src = url;
+    player.onended = () => setIsPlayingAudio(false);
+    void player.play();
+    setIsPlayingAudio(true);
   };
 
   const persistRsvp = React.useCallback(
@@ -494,7 +605,7 @@ export default function GuestConversationalRsvpPage() {
               <div className="bg-[#D9FDD3] rounded-2xl rounded-tr-xs p-3 shadow-xs border border-[#C2EDB9] max-w-[88%] space-y-2">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setIsPlayingAudio(!isPlayingAudio)}
+                    onClick={toggleVoicePlayback}
                     className="w-10 h-10 rounded-full bg-[#075E54] text-white flex items-center justify-center shrink-0 hover:bg-[#064e46] transition-all shadow-xs"
                     aria-label="Play audio note"
                   >
@@ -529,10 +640,10 @@ export default function GuestConversationalRsvpPage() {
                 <div className="bg-white/80 rounded-xl p-2 text-[11px] text-[#2C2420] border border-black/5 space-y-1">
                   <div className="flex items-center justify-between text-[10px] font-semibold text-[#7A3B18]">
                     <span>AI Transcription</span>
-                    <span className="text-emerald-700 font-mono">Conf: 96%</span>
+                    <span className="text-emerald-700 font-mono">Transcribed</span>
                   </div>
                   <p className="italic text-[#4A403A]">
-                    &quot;Yes, I will definitely attend the gala with my wife. Please reserve 2 seats for us at the VIP section.&quot;
+                    &quot;{voiceTranscript || 'Voice note received.'}&quot;
                   </p>
                 </div>
 
@@ -951,10 +1062,18 @@ export default function GuestConversationalRsvpPage() {
                       : 'Speak your response naturally in your preferred language'}
                   </p>
                   <p className="font-mono text-sm text-[#70665F]">
-                    {isRecording ? `00:${recordingSeconds < 10 ? `0${recordingSeconds}` : recordingSeconds}` : recordedAudioReady ? '00:14' : 'Ready'}
+                    {isRecording || recordedAudioReady
+                      ? `00:${String(recordingSeconds).padStart(2, '0')}`
+                      : 'Ready'}
                   </p>
                 </div>
               </div>
+
+              {voiceError && (
+                <p className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                  {voiceError}
+                </p>
+              )}
 
               {/* Action Buttons */}
               <div className="space-y-2">
@@ -984,11 +1103,12 @@ export default function GuestConversationalRsvpPage() {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={handleSendVoiceNote}
-                      className="w-full py-3 rounded-2xl bg-[#075E54] hover:bg-[#064e46] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all"
+                      disabled={voiceSending}
+                      onClick={() => void handleSendVoiceNote()}
+                      className="w-full py-3 rounded-2xl bg-[#075E54] hover:bg-[#064e46] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-60"
                     >
                       <Send className="w-4 h-4" />
-                      <span>Send Voice RSVP Note</span>
+                      <span>{voiceSending ? 'Transcribing…' : 'Send Voice RSVP Note'}</span>
                     </button>
                     <button
                       type="button"

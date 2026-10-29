@@ -184,10 +184,14 @@ export const eventAPI = baseAPI.injectEndpoints({
       invalidatesTags: ["Attendee"],
     }),
 
-    sendAllInvites: build.mutation<{ message?: string; data?: { sent: number; failed: number; total: number } }, string>({
-      query: (eventId) => ({
+    sendAllInvites: build.mutation<
+      { message?: string; data?: { sent: number; failed: number; total: number } },
+      { eventId: string; guestIds?: string[] }
+    >({
+      query: ({ eventId, guestIds }) => ({
         url: `/individual/events/${eventId}/guests/invitations`,
         method: "POST",
+        body: guestIds?.length ? { guestIds } : {},
       }),
       invalidatesTags: ["Attendee"],
     }),
@@ -301,6 +305,7 @@ export const {
   usePublishEventMutation,
   useDeleteEventMutation,
   useGetEventGuestsQuery,
+  useLazyGetEventGuestsQuery,
   useAddGuestMutation,
   useBulkAddGuestsMutation,
   useUpdateGuestMutation,

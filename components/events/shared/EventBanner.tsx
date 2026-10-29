@@ -122,6 +122,7 @@ export interface EventBannerProps {
   /** Rendered bottom-right next to the date/time pill. */
   bottomRight?: React.ReactNode;
   href?: string;
+  imageSrc?: string;
   className?: string;
 }
 
@@ -134,17 +135,24 @@ export function EventBanner({
   topRight,
   bottomRight,
   href,
+  imageSrc,
   className,
 }: EventBannerProps) {
   const content = (
     <>
-      <Image
-        src="/images/banner.png"
-        alt=""
-        fill
-        sizes="(min-width: 1024px) 80vw, 100vw"
-        className="object-cover"
-      />
+      {imageSrc ? (
+        // Local banner previews are blob URLs, which next/image does not load.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <Image
+          src="/images/banner.png"
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 80vw, 100vw"
+          className="object-cover"
+        />
+      )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/5" />
 
       <div className="relative z-10 flex items-start justify-between gap-4">

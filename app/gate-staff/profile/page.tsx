@@ -3,9 +3,12 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil } from 'lucide-react';
-import { useAppDispatch } from '@/store/store';
-import { logout } from '@/store/Auth/authSlice';
+import { toast } from 'react-toastify';
+import { useAppDispatch, useAppSelector } from '@/store/store';
+import { logout, setCredentials } from '@/store/Auth/authSlice';
+import { useChangePasswordMutation } from '@/store/Auth/authApi';
 import { GateMobileShell } from '@/components/gate-staff/GateMobileShell';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getGateWorkspace, type GateWorkspace } from '@/lib/api/platform';
 
 function formatEventDate(value: string) {
@@ -21,7 +24,14 @@ function initials(name: string) {
 export default function GateStaffProfilePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+  const [changePassword, { isLoading: changingPassword }] = useChangePasswordMutation();
   const [workspace, setWorkspace] = React.useState<GateWorkspace | null>(null);
+  const [passwordOpen, setPasswordOpen] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [passwordError, setPasswordError] = React.useState('');
 
   React.useEffect(() => {
     getGateWorkspace().then(setWorkspace).catch(() => setWorkspace(null));
@@ -29,6 +39,42 @@ export default function GateStaffProfilePage() {
 
   const staff = workspace?.staff;
   const assignments = workspace?.events ?? [];
+
+  const closePassword = () => {
+    setPasswordOpen(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+  };
+
+  const handleChangePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPasswordError('');
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirmation do not match.');
+      return;
+    }
+    try {
+      const response = await changePassword({ currentPassword, newPassword }).unwrap();
+      if (response.data?.accessToken) {
+        dispatch(setCredentials({
+          accessToken: response.data.accessToken,
+          refreshToken: response.data.refreshToken,
+          user: user || undefined,
+        }));
+      }
+      closePassword();
+      toast.success('Password changed');
+    } catch (error: unknown) {
+      const apiError = error as { data?: { message?: string } };
+      setPasswordError(apiError.data?.message || 'Password could not be changed.');
+    }
+  };
 
   const handleLogout = () => {
     dispatch(logout());
@@ -104,11 +150,69 @@ export default function GateStaffProfilePage() {
         {/* Change Password Button */}
         <button
           type="button"
-          onClick={() => router.push(`/forgot-password?email=${encodeURIComponent(staff?.email || '')}`)}
+          onClick={() => setPasswordOpen(true)}
           className="w-full py-3.5 px-4 bg-[#211612] hover:bg-[#34241D] text-white rounded-2xl text-sm font-medium transition-colors shadow-xs active:scale-[0.99]"
         >
           Change Password
         </button>
+
+        <Dialog open={passwordOpen} onOpenChange={(open) => { if (!open) closePassword(); else setPasswordOpen(true); }}>
+          <DialogContent className="sm:max-w-md rounded-3xl border border-[#EAE5DC] bg-white p-6">
+            <DialogHeader>
+              <DialogTitle className="font-serif text-2xl font-medium text-[#1F1916]">
+                Change Password
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleChangePassword} className="space-y-3 pt-1">
+              <label className="block space-y-1">
+                <span className="text-xs text-[#8A7E75]">Current password</span>
+                <input
+                  required
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  autoComplete="current-password"
+                  className="w-full rounded-xl border border-[#EAE5DC] px-3 py-2.5 text-sm text-[#1F1916] outline-none focus:ring-1 focus:ring-[#7A3B18]"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs text-[#8A7E75]">New password</span>
+                <input
+                  required
+                  type="password"
+                  minLength={8}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  autoComplete="new-password"
+                  placeholder="At least 8 characters"
+                  className="w-full rounded-xl border border-[#EAE5DC] px-3 py-2.5 text-sm text-[#1F1916] outline-none focus:ring-1 focus:ring-[#7A3B18]"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs text-[#8A7E75]">Confirm new password</span>
+                <input
+                  required
+                  type="password"
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  autoComplete="new-password"
+                  className="w-full rounded-xl border border-[#EAE5DC] px-3 py-2.5 text-sm text-[#1F1916] outline-none focus:ring-1 focus:ring-[#7A3B18]"
+                />
+              </label>
+              {passwordError && (
+                <p className="text-xs text-[#B33927]">{passwordError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={changingPassword}
+                className="w-full rounded-2xl bg-[#211612] py-3 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {changingPassword ? 'Saving...' : 'Save new password'}
+              </button>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Current Assignments Section */}
         <div className="space-y-3 pt-2">

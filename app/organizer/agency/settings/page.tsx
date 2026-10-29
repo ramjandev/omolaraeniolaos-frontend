@@ -1,6 +1,4 @@
-import * as React from 'react';
-import { AppShell } from '@/components/shell/AppShell';
-import { AgencySettingsView } from '@/components/settings/AgencySettingsView';
+import { SettingsScreen } from '@/components/organizer/SettingsScreen';
 
 export const metadata = {
   title: 'Settings | McEniesVite Agency',
@@ -8,13 +6,5 @@ export const metadata = {
 };
 
 export default function AgencySettingsPage() {
-  return (
-    <AppShell
-      currentRole="organizer_agency"
-      title="Settings"
-      subtitle="Manage your account and event preferences."
-    >
-      <AgencySettingsView />
-    </AppShell>
-  );
+  return <SettingsScreen role="organizer_agency" />;
 }

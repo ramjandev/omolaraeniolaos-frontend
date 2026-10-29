@@ -107,6 +107,12 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
   const fileInput = React.useRef<HTMLInputElement>(null);
 
   const guests = React.useMemo(() => data?.data?.guests ?? [], [data]);
+  const unsentCount = React.useMemo(
+    () => guests.filter((guest) => guest.rsvpStatus === 'Not Sent').length,
+    [guests],
+  );
+  const selectedCount = selected.size;
+  const inviteCount = selectedCount > 0 ? selectedCount : unsentCount;
 
   const tabCounts = React.useMemo(() => {
     const counts: Record<string, number> = { all: guests.length };
@@ -191,7 +197,19 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
       if (editing) {
         await updateGuest({ eventId, guestId: editing.id, data: payload }).unwrap();
       } else {
-        await addGuest({ eventId, data: { ...payload, rsvpStatus: 'Not Sent' } }).unwrap();
+        const created = await addGuest({
+          eventId,
+          data: {
+            ...payload,
+            rsvpStatus: 'Not Sent',
+            sendInvite: checkingIn,
+          },
+        }).unwrap();
+        if (checkingIn && created.data?.invitation?.error) {
+          toast.error(created.data.invitation.error);
+        } else if (checkingIn && created.data?.invitation && !created.data.invitation.sent) {
+          toast.error('The guest was saved, but the invitation could not be sent.');
+        }
       }
       setFormOpen(false);
       setEditing(null);
@@ -214,7 +232,20 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
       return;
     }
     try {
-      await bulkAddGuests({ eventId, data: { guests: parsed } }).unwrap();
+      const imported = await bulkAddGuests({
+        eventId,
+        data: { guests: parsed, sendInvites: checkingIn },
+      }).unwrap();
+      if (checkingIn && imported.data?.invitations) {
+        const { sent, failed } = imported.data.invitations;
+        if (imported.data.invitations.emailError) {
+          toast.error(imported.data.invitations.emailError);
+        } else if (failed > 0) {
+          toast.error(`Sent ${sent} invitation${sent === 1 ? '' : 's'}. ${failed} could not be sent.`);
+        } else if (sent > 0) {
+          toast.success(`Invitation sent to ${sent} guest${sent === 1 ? '' : 's'}.`);
+        }
+      }
       if (skipped > 0) toast.info(`${skipped} row(s) were skipped because the name or phone was missing.`);
       if (shortenedPhones > 0) {
         toast.info(`${shortenedPhones} number(s) were shortened by Excel. Write them as +234 801 234 5678.`);
@@ -319,19 +350,26 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
             Add Guest
           </button>
           )}
-          {mode === 'invite' && (
+          {(mode === 'invite' || checkingIn) && (
             <button
               type="button"
-              disabled={sendingAll || (tabCounts['Not Sent'] ?? 0) === 0}
+              disabled={sendingAll || inviteCount === 0}
               onClick={() => {
-                void sendAllInvites(eventId).unwrap().catch(() => undefined);
+                const guestIds = selectedCount > 0 ? [...selected] : undefined;
+                void sendAllInvites({ eventId, guestIds })
+                  .unwrap()
+                  .then(() => setSelected(new Set()))
+                  .catch(() => undefined);
               }}
               className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#6B3416] px-3 text-xs font-medium text-white shadow-xs hover:bg-[#5A2B12] disabled:opacity-60"
             >
-              {sendingAll ? 'Sending…' : `Send All Invitations${tabCounts['Not Sent'] ? ` (${tabCounts['Not Sent']})` : ''}`}
+              {sendingAll
+                ? 'Sending…'
+                : selectedCount > 0
+                  ? `Send to selected (${selectedCount})`
+                  : `Send Invitations${unsentCount ? ` (${unsentCount})` : ''}`}
             </button>
           )}
-          {!checkingIn && (
           <button
             type="button"
             disabled={importing}
@@ -339,9 +377,8 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
             className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#2B1D14] px-3 text-xs font-medium text-white shadow-xs hover:bg-[#3D2A1E] disabled:opacity-60"
           >
             <Upload className="size-3.5" />
-            {importing ? 'Importing…' : 'Upload File'}
+            {importing ? 'Importing…' : checkingIn ? 'Upload & invite' : 'Upload File'}
           </button>
-          )}
           <input ref={fileInput} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImport} />
         </div>
       </div>
@@ -586,6 +623,7 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
         }}
         guest={editing}
         busy={adding || (Boolean(editing) && updating)}
+        sendOnAdd={checkingIn && !editing}
         onSubmit={handleSubmitGuest}
       />
 

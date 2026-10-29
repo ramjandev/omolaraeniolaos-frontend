@@ -34,6 +34,18 @@ export const authAPI = baseAPI.injectEndpoints({
       providesTags: ["Me", "Auth"],
     }),
 
+    updateProfile: build.mutation<
+      ApiResponse<User>,
+      { fullName: string; email: string; phone?: string; avatarUrl?: string }
+    >({
+      query: (body) => ({
+        url: "/auth/me",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Me", "Auth"],
+    }),
+
     registerIndividual: build.mutation<
       ApiResponse<LoginResponse>,
       RegisterIndividualPayload
@@ -108,12 +120,85 @@ export const authAPI = baseAPI.injectEndpoints({
         body,
       }),
     }),
+
+    getAccountSettings: build.query<
+      ApiResponse<{
+        email: string;
+        emailVerified: boolean;
+        notifications: {
+          rsvpUpdates: boolean;
+          guestReminders: boolean;
+          eventUpdates: boolean;
+          billingNotifications: boolean;
+        };
+      }>,
+      void
+    >({
+      query: () => ({
+        url: "/auth/settings",
+        method: "GET",
+      }),
+      providesTags: ["Me"],
+    }),
+
+    saveNotificationPreferences: build.mutation<
+      ApiResponse<{
+        notifications: {
+          rsvpUpdates: boolean;
+          guestReminders: boolean;
+          eventUpdates: boolean;
+          billingNotifications: boolean;
+        };
+      }>,
+      {
+        rsvpUpdates: boolean;
+        guestReminders: boolean;
+        eventUpdates: boolean;
+        billingNotifications: boolean;
+      }
+    >({
+      query: (body) => ({
+        url: "/auth/notification-preferences",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Me"],
+    }),
+
+    changePassword: build.mutation<
+      ApiResponse<TokenResponse & { changed: boolean }>,
+      { currentPassword: string; newPassword: string }
+    >({
+      query: (body) => ({
+        url: "/auth/change-password",
+        method: "POST",
+        body,
+      }),
+    }),
+
+    logoutOtherDevices: build.mutation<
+      ApiResponse<TokenResponse & { loggedOutOthers: boolean }>,
+      void
+    >({
+      query: () => ({
+        url: "/auth/logout-other-devices",
+        method: "POST",
+      }),
+    }),
+
+    deleteAccount: build.mutation<ApiResponse<{ deleted: boolean }>, void>({
+      query: () => ({
+        url: "/auth/account",
+        method: "DELETE",
+      }),
+    }),
   }),
 });
 
 export const {
   useLoginUserMutation,
   useGetMeQuery,
+  useUpdateProfileMutation,
   useRegisterIndividualMutation,
   useRegisterAgencyMutation,
   useRegisterVenueMutation,
@@ -121,6 +206,11 @@ export const {
   useRefreshTokenMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useGetAccountSettingsQuery,
+  useSaveNotificationPreferencesMutation,
+  useChangePasswordMutation,
+  useLogoutOtherDevicesMutation,
+  useDeleteAccountMutation,
 } = authAPI;
 
 export const authApi = authAPI;

@@ -19,6 +19,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { guestEntrySchema, type GuestEntryValues } from "@/lib/validations/eventWizardSchemas";
+import { useGetEventsQuery, useLazyGetEventGuestsQuery } from "@/store/Event/eventAPI";
+import type { EventGuest } from "@/store/Event/types/eventTypes";
 import {
   GUEST_GROUPS,
   type WizardGuest,
@@ -49,13 +51,28 @@ function toGuest(values: GuestEntryValues, index = 0): WizardGuest {
   return {
     id: `guest-${Date.now()}-${index}`,
     name: values.name,
-    email: "",
+    email: values.email,
     phone: values.phone,
     group: values.group,
     rsvpStatus: "Not Sent",
     invitationStatus: "Not Sent",
     partySize: 1,
     preference: "--",
+  };
+}
+
+function previousGuest(guest: EventGuest, index: string): WizardGuest {
+  const group = (GUEST_GROUPS as readonly string[]).includes(guest.type) ? guest.type : "General";
+  return {
+    id: `prev-${Date.now()}-${index}-${guest.id}`,
+    name: guest.name,
+    email: guest.email || "",
+    phone: guest.phone,
+    group,
+    rsvpStatus: "Not Sent",
+    invitationStatus: "Not Sent",
+    partySize: guest.partySize || 1,
+    preference: guest.preference || "--",
   };
 }
 
@@ -81,6 +98,18 @@ export function GuestListManager({
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [partySort, setPartySort] = React.useState<"asc" | "desc" | null>(null);
   const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [previousOpen, setPreviousOpen] = React.useState(false);
+  const [selectedEventIds, setSelectedEventIds] = React.useState<string[]>([]);
+  const [eventSearch, setEventSearch] = React.useState("");
+  const [eventType, setEventType] = React.useState("All");
+  const [copying, setCopying] = React.useState(false);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
+  const keepOpen = React.useRef(false);
+  const { data: eventsResponse, isLoading: eventsLoading } = useGetEventsQuery(undefined, {
+    skip: !previousOpen,
+  });
+  const [fetchGuests] = useLazyGetEventGuestsQuery();
   const [csvError, setCsvError] = React.useState("");
   const [csvFileName, setCsvFileName] = React.useState("");
   const [dragOver, setDragOver] = React.useState(false);
@@ -89,7 +118,7 @@ export function GuestListManager({
 
   const form = useForm<GuestEntryValues>({
     resolver: zodResolver(guestEntrySchema),
-    defaultValues: { name: "", group: "Family & Friend", phone: "" },
+    defaultValues: { name: "", email: "", group: "Family & Friend", phone: "" },
   });
 
   const filtered = guests.filter((guest) => {
@@ -110,11 +139,18 @@ export function GuestListManager({
         return partySort === "asc" ? left - right : right - left;
       })
     : filtered;
+  const pageCount = Math.max(1, Math.ceil(visibleGuests.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageGuests = visibleGuests.slice((safePage - 1) * pageSize, safePage * pageSize);
   const statusCounts = React.useMemo(() => {
     const counts = { All: guests.length, Accepted: 0, Declined: 0, Pending: 0, "Not Sent": 0 };
     for (const guest of guests) counts[guest.rsvpStatus] += 1;
     return counts;
   }, [guests]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [search, filter, pageSize]);
 
   const appendGuests = (incoming: WizardGuest[]) => {
     const room = capacity - guests.length;
@@ -163,7 +199,7 @@ export function GuestListManager({
 
   const openAdd = () => {
     setEditingId(null);
-    form.reset({ name: "", group: "Family & Friend", phone: "" });
+    form.reset({ name: "", email: "", group: "Family & Friend", phone: "" });
     setAddOpen(true);
   };
 
@@ -172,7 +208,7 @@ export function GuestListManager({
       ? (guest.group as GuestEntryValues["group"])
       : "General";
     setEditingId(guest.id);
-    form.reset({ name: guest.name, group, phone: guest.phone });
+    form.reset({ name: guest.name, email: guest.email || "", group, phone: guest.phone });
     setAddOpen(true);
   };
 
@@ -202,6 +238,8 @@ export function GuestListManager({
   };
 
   const submitManual = form.handleSubmit((values) => {
+    const stayOpen = keepOpen.current;
+    keepOpen.current = false;
     const duplicate = guests.some(
       (guest) => guest.id !== editingId && phoneDigits(guest.phone) === phoneDigits(values.phone),
     );
@@ -213,7 +251,7 @@ export function GuestListManager({
       onChange(
         guests.map((guest) =>
           guest.id === editingId
-            ? { ...guest, name: values.name, phone: values.phone, group: values.group }
+            ? { ...guest, name: values.name, email: values.email, phone: values.phone, group: values.group }
             : guest,
         ),
       );
@@ -223,12 +261,58 @@ export function GuestListManager({
       if (result.added === 0) return;
       toast.success(`${values.name} added to the guest list.`);
     }
-    form.reset({ name: "", group: "Family & Friend", phone: "" });
+    form.reset({ name: "", email: "", group: "Family & Friend", phone: "" });
+    if (stayOpen && !editingId) {
+      setEditingId(null);
+      return;
+    }
     window.setTimeout(() => {
       setEditingId(null);
       setAddOpen(false);
     }, 0);
   });
+
+  const previousEvents = eventsResponse?.data?.events ?? [];
+  const eventTypes = ["All", ...new Set(previousEvents.map((event) => event.category).filter(Boolean))];
+  const visiblePrevious = previousEvents.filter((event) => {
+    const query = eventSearch.trim().toLowerCase();
+    const matchesType = eventType === "All" || event.category === eventType;
+    if (!matchesType) return false;
+    if (!query) return true;
+    return event.title.toLowerCase().includes(query) || event.category?.toLowerCase().includes(query);
+  });
+
+  const copyPreviousGuests = async () => {
+    if (selectedEventIds.length === 0) {
+      toast.error("Choose at least one previous event.");
+      return;
+    }
+    setCopying(true);
+    try {
+      const batches = await Promise.all(selectedEventIds.map((id) => fetchGuests({ id }).unwrap()));
+      const incoming = batches.flatMap((batch, batchIndex) =>
+        (batch.data?.guests ?? []).map((guest, index) => previousGuest(guest, `${batchIndex}-${index}`)),
+      );
+      if (incoming.length === 0) {
+        toast.error("Those events do not have guests to copy yet.");
+        return;
+      }
+      const result = appendGuests(incoming);
+      if (result.added === 0) {
+        toast.error("Those guests are already on this list, or the list is full.");
+        return;
+      }
+      toast.success(
+        `${result.added} guest${result.added === 1 ? "" : "s"} copied from previous events.`,
+      );
+      setPreviousOpen(false);
+      setSelectedEventIds([]);
+    } catch {
+      toast.error("Those guest lists could not be loaded.");
+    } finally {
+      setCopying(false);
+    }
+  };
 
   const importCsvText = (text: string, fileName: string) => {
     const { guests: parsed, skipped, shortenedPhones } = parseGuestCsv(text);
@@ -306,7 +390,7 @@ export function GuestListManager({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="p-8 rounded-3xl border border-[#EBE3D9] bg-[#FAF8F5] dark:bg-card/60 flex flex-col items-center justify-between text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-[#FCEDE6] text-[#6E3B1C] flex items-center justify-center text-2xl">
               👥
@@ -353,6 +437,25 @@ export function GuestListManager({
             >
               <Upload className="w-4 h-4 mr-1.5" />
               Upload File
+            </Button>
+          </div>
+
+          <div className="p-8 rounded-3xl border border-[#EBE3D9] bg-[#FAF8F5] dark:bg-card/60 flex flex-col items-center justify-between text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-[#F8E7D8] text-[#C47A45] flex items-center justify-center text-2xl">
+              📋
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-serif font-bold text-base text-foreground">Use a Previous Events Guest List</h3>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                Choose from your previous events
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => setPreviousOpen(true)}
+              className="w-full max-w-xs h-11 text-xs rounded-xl bg-[#C4A484] hover:bg-[#B08A68] text-white font-semibold"
+            >
+              Choose
             </Button>
           </div>
         </div>
@@ -425,7 +528,7 @@ export function GuestListManager({
                     onClick={() => setPartySort((current) => (current === "asc" ? "desc" : "asc"))}
                     className="inline-flex items-center gap-1 font-semibold text-foreground"
                   >
-                    Number of Guests
+                    How Many Coming
                     <ChevronsUpDown className="size-3" />
                   </button>
                 </th>
@@ -456,7 +559,7 @@ export function GuestListManager({
                   </td>
                 </tr>
               ) : (
-                visibleGuests.map((guest) => {
+                pageGuests.map((guest) => {
                   const replied = hasGuestReply(guest.rsvpStatus);
                   const label = rsvpLabel(guest.rsvpStatus);
                   const sent = guest.invitationStatus === "Delivered";
@@ -537,6 +640,44 @@ export function GuestListManager({
             </tbody>
           </table>
         </div>
+        <div className="flex flex-col gap-3 border-t border-[#EBE3D9] px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <span>Rows per page</span>
+            <select
+              value={pageSize}
+              onChange={(event) => setPageSize(Number(event.target.value))}
+              className="h-8 rounded-lg border border-[#EBE3D9] bg-card px-2"
+            >
+              {[10, 20, 50].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+            <span>
+              showing {visibleGuests.length === 0 ? 0 : (safePage - 1) * pageSize + 1} of {visibleGuests.length} rows
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={safePage <= 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              className="rounded-lg border border-[#EBE3D9] px-3 py-1.5 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="rounded-lg bg-[#C4A484] px-2.5 py-1.5 font-semibold text-white">{safePage}</span>
+            <button
+              type="button"
+              disabled={safePage >= pageCount}
+              onClick={() => setPage((current) => current + 1)}
+              className="rounded-lg border border-[#EBE3D9] px-3 py-1.5 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </Card>
 
       <Dialog
@@ -569,6 +710,13 @@ export function GuestListManager({
               <Input id="guest-name" placeholder="guest name" className={fieldClass} {...form.register("name")} />
               {errorText(form.formState.errors.name?.message)}
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="guest-email" className="text-xs font-semibold">
+                Guest Email Address
+              </Label>
+              <Input id="guest-email" placeholder="guest@email.com" className={fieldClass} {...form.register("email")} />
+              {errorText(form.formState.errors.email?.message)}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="guest-group" className="text-xs font-semibold">
@@ -600,10 +748,105 @@ export function GuestListManager({
                 {errorText(form.formState.errors.phone?.message)}
               </div>
             </div>
-            <Button type="submit" className="w-full h-11 text-xs font-semibold bg-[#6E3B1C] hover:bg-[#5C3117] text-white rounded-xl shadow-xs">
-              {editingId ? "Save Changes" : "Add Guest"}
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="submit"
+                variant="outline"
+                onClick={() => {
+                  keepOpen.current = !editingId;
+                }}
+                className="h-11 text-xs font-semibold rounded-xl"
+              >
+                Draft
+              </Button>
+              <Button
+                type="submit"
+                onClick={() => {
+                  keepOpen.current = false;
+                }}
+                className="h-11 text-xs font-semibold bg-[#6E3B1C] hover:bg-[#5C3117] text-white rounded-xl shadow-xs"
+              >
+                {editingId ? "Save Changes" : "Save"}
+              </Button>
+            </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={previousOpen} onOpenChange={setPreviousOpen}>
+        <DialogContent className="sm:max-w-md rounded-3xl p-5 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="font-serif font-bold text-lg text-foreground">Previous events</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Copy guests from events you already created.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                value={eventSearch}
+                onChange={(event) => setEventSearch(event.target.value)}
+                placeholder="Search"
+                className="h-10 pl-9 text-xs rounded-xl"
+              />
+            </div>
+            <select
+              value={eventType}
+              onChange={(event) => setEventType(event.target.value)}
+              className="h-10 rounded-xl border border-[#EBE3D9] bg-card px-3 text-xs"
+            >
+              {eventTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type === "All" ? "Event Type" : type}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="max-h-80 space-y-1 overflow-y-auto">
+            {eventsLoading && <p className="px-2 py-6 text-center text-xs text-muted-foreground">Loading events…</p>}
+            {!eventsLoading && visiblePrevious.length === 0 && (
+              <p className="px-2 py-6 text-center text-xs text-muted-foreground">No previous events to copy from.</p>
+            )}
+            {visiblePrevious.map((event) => {
+              const checked = selectedEventIds.includes(event.id);
+              return (
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() =>
+                    setSelectedEventIds((current) =>
+                      current.includes(event.id)
+                        ? current.filter((id) => id !== event.id)
+                        : [...current, event.id],
+                    )
+                  }
+                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-[#FAF7F2]"
+                >
+                  <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-[#E7D3C4]" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{event.title}</span>
+                    <span className="block text-xs text-muted-foreground">{event.category}</span>
+                  </span>
+                  <span
+                    className={`grid size-5 place-items-center rounded-md border ${
+                      checked ? "border-[#2D5A46] bg-[#2D5A46] text-white" : "border-[#DED7CC]"
+                    }`}
+                  >
+                    {checked ? "✓" : ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <Button
+            type="button"
+            disabled={copying || selectedEventIds.length === 0}
+            onClick={() => void copyPreviousGuests()}
+            className="h-11 w-full rounded-xl bg-[#241710] text-xs font-semibold text-white hover:bg-[#38261C]"
+          >
+            {copying ? "Copying…" : "Use selected lists"}
+          </Button>
         </DialogContent>
       </Dialog>
 

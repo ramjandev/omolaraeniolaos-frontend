@@ -11,9 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { eventsPath } from "@/lib/organizer";
+import { getAgencyClients, getAgencyTeam, type AgencyClientOption, type AgencyTeamMemberRow } from "@/lib/api/agency-dashboard";
+import { getVenueSpaces, type VenueSpaceCard } from "@/lib/api/venue-spaces";
+import { eventsPath, ORGANIZERS, type OrganizerKind } from "@/lib/organizer";
 import {
-  basicsSchema,
+  basicsSchemaFor,
   detailsSchema,
   experienceSchema,
   guestsStepSchema,
@@ -27,6 +29,7 @@ import { useGetMeQuery } from "@/store/Auth/authApi";
 import {
   useBulkAddGuestsMutation,
   useCreateEventMutation,
+  usePublishEventMutation,
 } from "@/store/Event/eventAPI";
 import type { AddGuestPayload } from "@/store/Event/types/eventTypes";
 import {
@@ -43,17 +46,20 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlanPaymentFlow } from "@/components/payments/PlanPaymentFlow";
+import type { PlanOrganizerType } from "@/store/Plan/types/planTypes";
 import {
   ArrowRight,
+  CalendarDays,
   Check,
   ChevronDown,
   Eye,
   MapPin,
+  Send,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegister } from "react-hook-form";
 import { toast } from "react-toastify";
 import { ExperienceStep } from "./ExperienceStep";
 import { GuestListManager } from "./GuestListManager";
@@ -77,14 +83,35 @@ function preferFilled<T extends object>(saved: T, current: Partial<T>): T {
   return next;
 }
 
+const PLAN_PAYMENT_FLAG = "mcenies-plan-payment-success";
+
+function paymentSearchParams() {
+  if (typeof window === "undefined") return new URLSearchParams();
+  const raw = window.location.search.replace(/^\?/, "").replace(/\?/g, "&");
+  return new URLSearchParams(raw);
+}
+
 function paymentReturnKey() {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
+  const params = paymentSearchParams();
   const status = (params.get("status") || params.get("payment_status") || "").toLowerCase();
-  const paid = status === "successful" || status === "completed" || params.get("payment_success") === "true";
+  const paid =
+    status === "successful" ||
+    status === "success" ||
+    status === "completed" ||
+    params.get("payment_success") === "true";
   if (!paid) return null;
   const tx = params.get("tx_ref") || params.get("transaction_id") || "return";
   return `event-created-after-payment:${tx}`;
+}
+
+function rememberPlanPayment() {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(PLAN_PAYMENT_FLAG, "1");
+}
+
+function rememberedPlanPayment() {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(PLAN_PAYMENT_FLAG) === "1";
 }
 
 function formatInviteDate(value: string) {
@@ -134,7 +161,8 @@ export type StepKey =
   | "guests"
   | "invitation"
   | "experience"
-  | "payment";
+  | "payment"
+  | "review";
 
 export interface InvitationTemplateItem {
   id: string;
@@ -238,36 +266,58 @@ const INVITATION_TEMPLATES: InvitationTemplateItem[] = [
 export function IndividualEventWorkspace({
   initialStep,
   startNew = false,
+  kind = "individual",
+  clientId,
 }: {
   initialStep?: StepKey;
   startNew?: boolean;
+  kind?: OrganizerKind;
+  clientId?: string;
 }) {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const wizard = useAppSelector((state) => state.event);
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
   const wizardReady = useAppSelector(
     (state) =>
       (state.event as { _persist?: { rehydrated?: boolean } })._persist
         ?.rehydrated === true,
   );
-  const { data: profile } = useGetMeQuery();
+  const { data: profile, isLoading: profileLoading } = useGetMeQuery();
   const planPaid = profile?.data?.plan?.isPaid === true;
+  const [paidThisSession, setPaidThisSession] = React.useState(false);
+  const paymentSucceeded = planPaid || paidThisSession;
+  const showPayment = !profileLoading && !paymentSucceeded;
+  const reviewsBeforePublish = kind === "agency" || kind === "venue";
+  const setupPath = `${ORGANIZERS[kind].basePath}/events/create`;
+  const planOrganizerType: PlanOrganizerType =
+    kind === "agency" ? "Agency" : kind === "venue" ? "Venue" : "Individual";
   const activeStep = wizard.activeStep;
   const setActiveStep = (step: StepKey) => dispatch(setWizardStep(step));
 
   React.useEffect(() => {
+    if (rememberedPlanPayment()) setPaidThisSession(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (reviewsBeforePublish && paymentReturnKey()) {
+      rememberPlanPayment();
+      setPaidThisSession(true);
+      dispatch(setWizardStep("review"));
+      return;
+    }
     if (initialStep) dispatch(setWizardStep(initialStep));
-  }, [dispatch, initialStep]);
+  }, [dispatch, initialStep, reviewsBeforePublish, wizardReady]);
 
   React.useEffect(() => {
     if (planPaid && activeStep === "payment" && !paymentReturnKey()) {
-      dispatch(setWizardStep("experience"));
+      dispatch(setWizardStep(reviewsBeforePublish ? "review" : "experience"));
     }
-  }, [activeStep, dispatch, planPaid]);
+  }, [activeStep, dispatch, planPaid, reviewsBeforePublish]);
 
   const basicsForm = useForm<BasicsFormValues>({
-    resolver: zodResolver(basicsSchema),
-    defaultValues: wizard.basics,
+    resolver: zodResolver(basicsSchemaFor(kind)),
+    defaultValues: { ...initialEventWizardState.basics, ...wizard.basics },
   });
   const detailsForm = useForm<DetailsFormValues>({
     resolver: zodResolver(detailsSchema),
@@ -305,7 +355,7 @@ export function IndividualEventWorkspace({
   React.useEffect(() => {
     if (!wizardReady || formsSynced.current || freshStart.current) return;
     formsSynced.current = true;
-    basicsForm.reset(wizard.basics);
+    basicsForm.reset({ ...initialEventWizardState.basics, ...wizard.basics });
     detailsForm.reset(wizard.details);
     invitationForm.reset(wizard.invitation);
     experienceForm.reset(
@@ -323,7 +373,7 @@ export function IndividualEventWorkspace({
     detailsForm.reset(initialEventWizardState.details);
     invitationForm.reset(initialEventWizardState.invitation);
     experienceForm.reset(initialEventWizardState.experience);
-    router.replace("/organizer/individual/events/create");
+    router.replace(setupPath);
   }, [
     basicsForm,
     detailsForm,
@@ -331,12 +381,14 @@ export function IndividualEventWorkspace({
     experienceForm,
     invitationForm,
     router,
+    setupPath,
     startNew,
     wizardReady,
   ]);
 
   const [createEvent, { isLoading: isCreatingEvent }] =
     useCreateEventMutation();
+  const [publishEvent] = usePublishEventMutation();
   const [bulkAddGuests] = useBulkAddGuestsMutation();
 
   const [invitationFilter, setInvitationFilter] =
@@ -346,6 +398,8 @@ export function IndividualEventWorkspace({
   const [isCustomizeModalOpen, setIsCustomizeModalOpen] = React.useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [isReadySuccessOpen, setIsReadySuccessOpen] = React.useState(false);
+  const [bannerPreview, setBannerPreview] = React.useState<string | null>(null);
+  const bannerInputRef = React.useRef<HTMLInputElement>(null);
   const [finishedEventId, setFinishedEventId] = React.useState<string | null>(
     null,
   );
@@ -355,7 +409,63 @@ export function IndividualEventWorkspace({
   wizardRef.current = wizard;
   const paymentCreateStarted = React.useRef(false);
 
+  React.useEffect(() => {
+    return () => {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+    };
+  }, [bannerPreview]);
+
+  const clientNameFilled = React.useRef(false);
+  const [agencyClients, setAgencyClients] = React.useState<AgencyClientOption[]>([]);
+  const [agencyTeam, setAgencyTeam] = React.useState<AgencyTeamMemberRow[]>([]);
+  const [venueSpaces, setVenueSpaces] = React.useState<VenueSpaceCard[]>([]);
+  React.useEffect(() => {
+    if (kind !== "agency" || !accessToken) return;
+    let active = true;
+    getAgencyClients()
+      .then((rows) => {
+        if (!active) return;
+        const list = Array.isArray(rows) ? rows : [];
+        setAgencyClients(list);
+        if (!clientId || clientNameFilled.current) return;
+        const match = list.find((client) => client.id === clientId);
+        if (!match) return;
+        clientNameFilled.current = true;
+        basicsForm.setValue("audience", "client");
+        basicsForm.setValue("clientId", match.id, { shouldValidate: true });
+        basicsForm.setValue("clientName", match.name, { shouldValidate: true });
+      })
+      .catch(() => undefined);
+    getAgencyTeam()
+      .then((team) => {
+        if (active) setAgencyTeam((team.members || []).filter((member) => !member.isYou));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [accessToken, basicsForm, clientId, kind]);
+
+  React.useEffect(() => {
+    if (kind !== "venue" || !accessToken) return;
+    let active = true;
+    getVenueSpaces()
+      .then((result) => {
+        if (active) setVenueSpaces(result.spaces || []);
+      })
+      .catch(() => undefined);
+    getAgencyTeam()
+      .then((team) => {
+        if (active) setAgencyTeam((team.members || []).filter((member) => !member.isYou));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [accessToken, kind]);
+
   const eventName = basicsForm.watch("eventName") || wizard.basics.eventName;
+  const audience = basicsForm.watch("audience") || wizard.basics.audience || "client";
   const eventType = basicsForm.watch("eventType") || wizard.basics.eventType;
   const eventDate = basicsForm.watch("eventDate") || wizard.basics.eventDate;
   const expectedGuests =
@@ -381,14 +491,17 @@ export function IndividualEventWorkspace({
   const fieldError = (message?: string) =>
     message ? <p className="text-xs text-[#B33927]">{message}</p> : null;
 
-  const createEventFromWizard = async () => {
+  const createEventFromWizard = async (publish = false) => {
     const saved = wizardRef.current;
-    const basicsInput = preferFilled(saved.basics, basicsForm.getValues());
+    const basicsInput = {
+      ...initialEventWizardState.basics,
+      ...preferFilled(saved.basics, basicsForm.getValues()),
+    };
     const detailsInput = preferFilled(saved.details, detailsForm.getValues());
     if (basicsInput.eventName === "Please fill out this field.") {
       basicsInput.eventName = saved.basics.eventName === "Please fill out this field." ? "" : saved.basics.eventName;
     }
-    const basicsResult = basicsSchema.safeParse(basicsInput);
+    const basicsResult = basicsSchemaFor(kind).safeParse(basicsInput);
     const detailsResult = detailsSchema.safeParse(detailsInput);
     if (!basicsResult.success || !detailsResult.success) {
       toast.error(
@@ -399,6 +512,35 @@ export function IndividualEventWorkspace({
     }
     const basics = basicsResult.data;
     const details = detailsResult.data;
+    let agencyClientId: string | undefined;
+    let newClient: { name: string; contactEmail: string; contactPhone?: string; industry?: string } | undefined;
+    if (kind === "agency" && basics.audience === "client") {
+      if (basics.clientId && basics.clientId !== "__new__") {
+        agencyClientId = basics.clientId;
+      } else {
+        newClient = {
+          name: `${basics.clientFirstName} ${basics.clientLastName}`.trim(),
+          contactEmail: basics.clientEmail.trim(),
+          contactPhone: basics.clientPhone.trim() || undefined,
+          industry: basics.clientOrganization.trim() || undefined,
+        };
+      }
+    }
+    const team = (basics.teamIds || [])
+      .map((token) => {
+        const [memberKind, memberId] = token.split(":");
+        if ((memberKind !== "admin" && memberKind !== "gate") || !memberId) return null;
+        return { kind: memberKind, memberId };
+      })
+      .filter((member): member is { kind: "admin" | "gate"; memberId: string } => Boolean(member));
+    const newTeamMember = (kind === "agency" || kind === "venue") && basics.addTeam
+      ? {
+          fullName: basics.teamName.trim(),
+          email: basics.teamEmail.trim(),
+          phone: basics.teamPhone.trim() || undefined,
+          role: basics.teamRole === "Gate Staff" ? "Gate Staff" as const : "Admin" as const,
+        }
+      : undefined;
     const created = await createEvent({
       title: basics.eventName.trim(),
       category: basics.eventType,
@@ -412,9 +554,17 @@ export function IndividualEventWorkspace({
       venueName: basics.venue || undefined,
       address: details.fullVenueAddress || undefined,
       description: details.additionalNotes || undefined,
+      agencyClientId,
+      newClient,
+      venueSpaceId: kind === "venue" ? basics.spaceId : undefined,
+      clientName: kind === "venue" ? basics.clientName.trim() : undefined,
+      team: team.length ? team : undefined,
+      newTeamMember,
     }).unwrap();
     const eventId = created.data?.id;
     if (!eventId) throw new Error("Event was not created");
+    const teamWarning = (created.data as { teamWarning?: string } | undefined)?.teamWarning;
+    if (teamWarning) toast.error(teamWarning);
     if (saved.guests.length > 0) {
       try {
         await bulkAddGuests({
@@ -423,6 +573,13 @@ export function IndividualEventWorkspace({
         }).unwrap();
       } catch {
         toast.error("The event was created, but the guest list could not be saved.");
+      }
+    }
+    if (publish) {
+      try {
+        await publishEvent(eventId).unwrap();
+      } catch {
+        toast.error("The event was created, but it could not be published.");
       }
     }
     finishedEventRef.current = eventId;
@@ -443,6 +600,14 @@ export function IndividualEventWorkspace({
     if (!wizardReady) return;
     const key = paymentReturnKey();
     if (!key || paymentCreateStarted.current) return;
+    rememberPlanPayment();
+    setPaidThisSession(true);
+    if (reviewsBeforePublish) {
+      paymentCreateStarted.current = true;
+      dispatch(setWizardStep("review"));
+      router.replace(`${setupPath}?step=review`);
+      return;
+    }
     const existing = sessionStorage.getItem(key);
     if (existing) {
       try {
@@ -465,7 +630,7 @@ export function IndividualEventWorkspace({
         paymentCreateStarted.current = false;
       })
       .finally(() => setIsProcessingPayment(false));
-  }, [wizardReady]);
+  }, [dispatch, reviewsBeforePublish, router, setupPath, wizardReady]);
 
   const continueBasics = basicsForm.handleSubmit((values) => {
     dispatch(saveBasics(values));
@@ -545,8 +710,16 @@ export function IndividualEventWorkspace({
     dispatch(saveBasics(preferFilled(wizardRef.current.basics, basicsForm.getValues())));
     dispatch(saveDetails(preferFilled(wizardRef.current.details, detailsForm.getValues())));
     dispatch(saveExperience(values));
-    if (!planPaid) {
+    if (profileLoading) {
+      toast.info("Checking your plan…");
+      return;
+    }
+    if (showPayment) {
       setActiveStep("payment");
+      return;
+    }
+    if (reviewsBeforePublish) {
+      setActiveStep("review");
       return;
     }
     setIsProcessingPayment(true);
@@ -559,159 +732,106 @@ export function IndividualEventWorkspace({
     }
   });
 
+  const onBannerFile = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Upload an image for the event banner.");
+      return;
+    }
+    setBannerPreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const wizardSteps: Array<{ key: StepKey; label: string; number: number }> = [
+    { key: "basics", label: "Basics", number: 1 },
+    { key: "details", label: "Details", number: 2 },
+    { key: "guests", label: "Guests", number: 3 },
+    { key: "invitation", label: "Invitation", number: 4 },
+    { key: "experience", label: "Experience", number: 5 },
+  ];
+  if (showPayment) {
+    wizardSteps.push({ key: "payment", label: "Payment", number: reviewsBeforePublish ? 6 : 7 });
+  }
+  if (reviewsBeforePublish) {
+    wizardSteps.push({ key: "review", label: "Review", number: 7 });
+  }
+  const activeStepIndex = Math.max(
+    0,
+    wizardSteps.findIndex((step) => step.key === activeStep),
+  );
+
   return (
     <div className="w-full space-y-6">
       <EventBanner
         title={eventName.trim() || "Untitled Event"}
         category={eventType}
         status="draft"
+        imageSrc={bannerPreview || undefined}
         countdown={countdownTo(eventStart)}
         meta={{
-          date: formatEventDate(eventStart) || "Date not set",
-          time: formatEventTime(eventStart) || undefined,
-          guests: expectedGuests || undefined,
+          date: formatEventDate(eventStart) || "dd/mm/yy",
+          time: formatEventTime(eventStart) || "--:--",
+          guests: expectedGuests || "00",
         }}
+        bottomRight={
+          <>
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                onBannerFile(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => bannerInputRef.current?.click()}
+              className="inline-flex h-10 items-center rounded-xl bg-[#241710] px-4 text-xs font-semibold text-white shadow-sm"
+            >
+              {bannerPreview ? "Edit" : "Upload Event Banner"}
+            </button>
+          </>
+        }
       />
       {isProcessingPayment && (
         <p className="text-sm text-[#736B66]">Creating your event…</p>
       )}
 
-      {/* Horizontal Connected Stepper matching Figma (Basics -> Details -> Guests -> Invitation -> Experience -> Payment) */}
       <div className="relative flex items-center justify-center pt-2 pb-4">
         <div className="absolute inset-x-12 top-1/2 -translate-y-1/2 h-0.5 bg-[#E5DFD7] dark:bg-border -z-0" />
 
         <div className="relative z-10 flex items-center gap-2 md:gap-4 overflow-x-auto px-4 max-w-full">
-          {/* Step 1: Basics */}
-          <button
-            type="button"
-            onClick={() => setActiveStep("basics")}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-              activeStep === "basics"
-                ? "bg-[#2D5A46] text-white shadow-sm ring-4 ring-[#2D5A46]/20"
-                : [
-                      "details",
-                      "guests",
-                      "invitation",
-                      "experience",
-                      "payment",
-                    ].includes(activeStep)
-                  ? "bg-[#2D5A46] text-white shadow-xs"
-                  : "bg-white dark:bg-card border border-[#DED7CC] text-muted-foreground"
-            }`}
-          >
-            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Basics</span>
-          </button>
-
-          {/* Step 2: Details */}
-          <button
-            type="button"
-            onClick={() => setActiveStep("details")}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-              activeStep === "details"
-                ? "bg-[#6E3B1C] text-white shadow-sm ring-4 ring-[#6E3B1C]/20"
-                : ["guests", "invitation", "experience", "payment"].includes(
-                      activeStep,
-                    )
-                  ? "bg-[#2D5A46] text-white shadow-xs"
-                  : "bg-white dark:bg-card border border-[#DED7CC] text-muted-foreground"
-            }`}
-          >
-            {["guests", "invitation", "experience", "payment"].includes(
-              activeStep,
-            ) ? (
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            ) : (
-              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
-                2
-              </span>
-            )}
-            <span>Details</span>
-          </button>
-
-          {/* Step 3: Guests */}
-          <button
-            type="button"
-            onClick={() => setActiveStep("guests")}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-              activeStep === "guests"
-                ? "bg-[#6E3B1C] text-white shadow-sm ring-4 ring-[#6E3B1C]/20"
-                : ["invitation", "experience", "payment"].includes(activeStep)
-                  ? "bg-[#2D5A46] text-white shadow-xs"
-                  : "bg-white dark:bg-card border border-[#DED7CC] text-muted-foreground"
-            }`}
-          >
-            {["invitation", "experience", "payment"].includes(activeStep) ? (
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            ) : (
-              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
-                3
-              </span>
-            )}
-            <span>Guests</span>
-          </button>
-
-          {/* Step 4: Invitation */}
-          <button
-            type="button"
-            onClick={() => setActiveStep("invitation")}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-              activeStep === "invitation"
-                ? "bg-[#6E3B1C] text-white shadow-sm ring-4 ring-[#6E3B1C]/20"
-                : ["experience", "payment"].includes(activeStep)
-                  ? "bg-[#2D5A46] text-white shadow-xs"
-                  : "bg-white dark:bg-card border border-[#DED7CC] text-muted-foreground"
-            }`}
-          >
-            {["experience", "payment"].includes(activeStep) ? (
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            ) : (
-              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
-                4
-              </span>
-            )}
-            <span>Invitation</span>
-          </button>
-
-          {/* Step 5: Experience */}
-          <button
-            type="button"
-            onClick={() => setActiveStep("experience")}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-              activeStep === "experience"
-                ? "bg-[#6E3B1C] text-white shadow-sm ring-4 ring-[#6E3B1C]/20"
-                : ["payment"].includes(activeStep)
-                  ? "bg-[#2D5A46] text-white shadow-xs"
-                  : "bg-white dark:bg-card border border-[#DED7CC] text-muted-foreground"
-            }`}
-          >
-            {["payment"].includes(activeStep) ? (
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            ) : (
-              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
-                5
-              </span>
-            )}
-            <span>Experience</span>
-          </button>
-
-          {/* Payment is shown only when this individual has not paid for a plan. */}
-          {!planPaid && (
-          <button
-            type="button"
-            onClick={() => setActiveStep("payment")}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
-              activeStep === "payment"
-                ? "bg-[#6E3B1C] text-white shadow-sm ring-4 ring-[#6E3B1C]/20"
-                : "bg-white dark:bg-card border border-[#DED7CC] text-muted-foreground"
-            }`}
-          >
-            <span className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
-              7
-            </span>
-            <span>Payment</span>
-          </button>
-          )}
+          {wizardSteps.map((step, index) => {
+            const done = index < activeStepIndex;
+            const current = index === activeStepIndex;
+            const showCheck = done || step.key === "basics";
+            const tone = current && step.key !== "basics" ? "bg-[#6E3B1C] text-white shadow-sm ring-4 ring-[#6E3B1C]/20" : done || (current && step.key === "basics") ? "bg-[#2D5A46] text-white shadow-xs" : "bg-white dark:bg-card border border-[#DED7CC] text-muted-foreground";
+            return (
+              <button
+                key={step.key}
+                type="button"
+                onClick={() => setActiveStep(step.key)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${tone}`}
+              >
+                {showCheck ? (
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                ) : (
+                  <span
+                    className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                      current ? "bg-white/20" : "bg-[#EFE8DF] text-[#6B5E56]"
+                    }`}
+                  >
+                    {step.number}
+                  </span>
+                )}
+                <span>{step.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -721,11 +841,12 @@ export function IndividualEventWorkspace({
           <div className="space-y-6">
             <div className="space-y-1">
               <h2 className="font-serif font-bold text-xl md:text-2xl text-[#1F140E] dark:text-foreground">
-                Set Event Basics
+                {reviewsBeforePublish ? "Event Basic Information" : "Set Event Basics"}
               </h2>
               <p className="text-xs text-[#736B66] dark:text-muted-foreground">
-                Enter core details to start building your personalized event
-                experience.
+                {reviewsBeforePublish
+                  ? "Provide your events basic information."
+                  : "Enter core details to start building your personalized event experience."}
               </p>
             </div>
 
@@ -734,6 +855,116 @@ export function IndividualEventWorkspace({
               noValidate
               className="space-y-5 pt-2"
             >
+              {kind === "agency" && (
+                <fieldset className="space-y-3">
+                  <legend className="text-sm font-semibold text-foreground">
+                    Who is this event for?
+                  </legend>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <AudienceChoice
+                      checked={audience === "agency"}
+                      label="My Agency's Event"
+                      onSelect={() => basicsForm.setValue("audience", "agency", { shouldValidate: true })}
+                    />
+                    <AudienceChoice
+                      checked={audience === "client"}
+                      label="For a Client"
+                      onSelect={() => basicsForm.setValue("audience", "client", { shouldValidate: true })}
+                    />
+                  </div>
+                </fieldset>
+              )}
+
+              {kind === "agency" && audience === "client" && (
+                <AgencyClientPicker
+                  clients={agencyClients}
+                  clientId={basicsForm.watch("clientId") || ""}
+                  error={basicsForm.formState.errors.clientId?.message}
+                  fieldError={fieldError}
+                  firstNameError={basicsForm.formState.errors.clientFirstName?.message}
+                  lastNameError={basicsForm.formState.errors.clientLastName?.message}
+                  emailError={basicsForm.formState.errors.clientEmail?.message}
+                  onClientChange={(value) => {
+                    basicsForm.setValue("clientId", value, { shouldValidate: true });
+                    const match = agencyClients.find((client) => client.id === value);
+                    basicsForm.setValue("clientName", match?.name || "", { shouldValidate: true });
+                  }}
+                  register={basicsForm.register}
+                />
+              )}
+
+              {kind === "venue" && (
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Venue <span className="text-rose-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <select
+                        className="w-full h-11 px-4 pr-10 rounded-xl bg-[#FAF8F5] dark:bg-muted/40 border border-[#EBE3D9] dark:border-border text-xs text-foreground appearance-none cursor-pointer"
+                        value={basicsForm.watch("spaceId") || ""}
+                        onChange={(event) => {
+                          const spaceId = event.target.value;
+                          basicsForm.setValue("spaceId", spaceId, { shouldValidate: true });
+                          const space = venueSpaces.find((item) => item.id === spaceId);
+                          if (!space) return;
+                          basicsForm.setValue("venue", space.address || space.name, { shouldValidate: true });
+                          if (space.address) {
+                            detailsForm.setValue("fullVenueAddress", space.address, { shouldValidate: true });
+                          }
+                        }}
+                      >
+                        <option value="">Select Venue</option>
+                        {venueSpaces.map((space) => (
+                          <option key={space.id} value={space.id}>
+                            {space.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                    {venueSpaces.length === 0 ? (
+                      <p className="text-xs text-[#736B66]">Add a venue before creating an event.</p>
+                    ) : null}
+                    {fieldError(basicsForm.formState.errors.spaceId?.message)}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Client Name <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input
+                      placeholder="Enter your client name"
+                      className="h-11 text-xs rounded-xl bg-[#FAF8F5] dark:bg-muted/40 border-[#EBE3D9] dark:border-border px-4"
+                      {...basicsForm.register("clientName")}
+                    />
+                    {fieldError(basicsForm.formState.errors.clientName?.message)}
+                  </div>
+                </div>
+              )}
+
+              {(kind === "agency" || kind === "venue") && (
+                <AgencyTeamPicker
+                  members={agencyTeam}
+                  teamError={basicsForm.formState.errors.teamIds?.message}
+                  selected={basicsForm.watch("teamIds") || []}
+                  adding={Boolean(basicsForm.watch("addTeam"))}
+                  fieldError={fieldError}
+                  nameError={basicsForm.formState.errors.teamName?.message}
+                  roleError={basicsForm.formState.errors.teamRole?.message}
+                  emailError={basicsForm.formState.errors.teamEmail?.message}
+                  onToggle={(token) => {
+                    const current = basicsForm.getValues("teamIds") || [];
+                    basicsForm.setValue(
+                      "teamIds",
+                      current.includes(token) ? current.filter((id) => id !== token) : [...current, token],
+                      { shouldValidate: true },
+                    );
+                  }}
+                  onAddingChange={(value) => basicsForm.setValue("addTeam", value, { shouldValidate: true })}
+                  register={basicsForm.register}
+                />
+              )}
+
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-foreground">
                   Event Name <span className="text-rose-500">*</span>
@@ -1197,24 +1428,86 @@ export function IndividualEventWorkspace({
           continueLabel={
             isProcessingPayment
               ? "Creating event…"
-              : planPaid
-                ? "Create Event"
-                : "Continue to Plans →"
+              : showPayment
+                ? "Continue to Plans →"
+                : reviewsBeforePublish
+                  ? "Continue to Review →"
+                  : "Create Event"
           }
           onContinue={() => void continueExperience()}
         />
       )}
 
-      {activeStep === "payment" && !planPaid && (
+      {activeStep === "review" && reviewsBeforePublish && (
+        <AgencyEventReview
+          clientLabel={
+            kind === "venue"
+              ? basicsForm.watch("clientName") || "Client not set"
+              : audience !== "client"
+                ? "My Agency's Event"
+                : basicsForm.watch("clientId") === "__new__"
+                  ? `${basicsForm.watch("clientFirstName") || ""} ${basicsForm.watch("clientLastName") || ""}`.trim() || "New client"
+                  : basicsForm.watch("clientName") || "Client not set"
+          }
+          teamLabel={
+            [
+              ...agencyTeam
+                .filter((member) => (basicsForm.watch("teamIds") || []).includes(`${member.kind}:${member.id}`))
+                .map((member) => member.name),
+              basicsForm.watch("addTeam") ? basicsForm.watch("teamName") : "",
+            ]
+              .filter(Boolean)
+              .join(", ") || "No team assigned"
+          }
+          eventName={eventName || "Untitled Event"}
+          eventType={eventType}
+          eventDate={formatEventDate(eventStart) || "Date not set"}
+          timeLabel={reviewTimeLabel(startTime, basicsForm.watch("endTime"))}
+          expectedGuests={expectedGuests || "0"}
+          venue={basicsForm.watch("venue") || "Venue not set"}
+          address={fullVenueAddress || "Address not set"}
+          parking={parkingInfo || "Not added"}
+          dressCode={dressCode || "Not added"}
+          notes={additionalNotes || "Not added"}
+          guests={wizard.guests}
+          template={
+            INVITATION_TEMPLATES.find((item) => item.id === selectedTemplateId) ??
+            INVITATION_TEMPLATES[0]
+          }
+          inviteTitle={customTitle || eventName || "Untitled Event"}
+          inviteSubHeader={customSubHeader || "Not added"}
+          inviteMessage={customMessage || "Not added"}
+          experience={experienceForm.getValues()}
+          busy={isProcessingPayment || isCreatingEvent}
+          canPublish={paymentSucceeded}
+          onEdit={setActiveStep}
+          onBack={() => setActiveStep(showPayment ? "payment" : "experience")}
+          onPublish={() => {
+            if (!paymentSucceeded) return;
+            setIsProcessingPayment(true);
+            void createEventFromWizard(true).finally(() => setIsProcessingPayment(false));
+          }}
+        />
+      )}
+
+      {activeStep === "payment" && showPayment && (
         <PlanPaymentFlow
+          organizerType={planOrganizerType}
           notice={
             eventName
               ? `${eventName} will begin promptly at ${formatInviteTime(startTime) || "the scheduled time"}.`
               : undefined
           }
-          redirectPath="/organizer/individual/events/create?step=payment"
+          redirectPath={`${setupPath}?step=review`}
           onBack={() => setActiveStep("experience")}
           onPaid={async () => {
+            rememberPlanPayment();
+            setPaidThisSession(true);
+            if (reviewsBeforePublish) {
+              setActiveStep("review");
+              router.replace(`${setupPath}?step=review`);
+              return;
+            }
             setIsProcessingPayment(true);
             try {
               await createEventFromWizard();
@@ -1534,10 +1827,10 @@ export function IndividualEventWorkspace({
           </div>
 
           <div className="space-y-2">
-            <h2 className="font-serif font-bold text-2xl text-foreground flex items-center justify-center gap-2">
+            <DialogTitle className="font-serif font-bold text-2xl text-foreground flex items-center justify-center gap-2">
               <span>Your Event Is Ready</span>
               <span>🎉</span>
-            </h2>
+            </DialogTitle>
             <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
               &quot;{finishedTitle}&quot; has been created successfully. You are
               now ready to start inviting guests.
@@ -1550,7 +1843,7 @@ export function IndividualEventWorkspace({
               onClick={() => {
                 const eventId = finishedEventRef.current || finishedEventId;
                 setIsReadySuccessOpen(false);
-                router.push(eventsPath("individual", eventId ?? undefined));
+                router.push(eventsPath(kind, eventId ?? undefined));
               }}
               variant="outline"
               className="w-full h-11 text-xs font-bold rounded-full border-foreground text-foreground hover:bg-muted"
@@ -1560,6 +1853,573 @@ export function IndividualEventWorkspace({
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function AudienceChoice({
+  checked,
+  label,
+  onSelect,
+}: {
+  checked: boolean;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      onClick={onSelect}
+      className={`flex h-14 items-center gap-3 rounded-xl border px-4 text-left text-sm font-medium transition-colors ${
+        checked
+          ? "border-[#7A3B18] bg-[#FBF3EA] text-[#3A2C25]"
+          : "border-[#E8E2D8] bg-white text-[#3A2C25] hover:border-[#D8CFC4] dark:bg-card"
+      }`}
+    >
+      <span
+        className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${
+          checked ? "border-[#7A3B18]" : "border-[#C9C0B6]"
+        }`}
+      >
+        {checked && <span className="size-2.5 rounded-full bg-[#7A3B18]" />}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function reviewTimeLabel(start: string, end?: string) {
+  const startLabel = formatInviteTime(start);
+  const endLabel = formatInviteTime(end || "");
+  if (!startLabel) return "Time not set";
+  return endLabel ? `${startLabel} – ${endLabel} WAT` : `${startLabel} WAT`;
+}
+
+function formatReviewDeadline(value: string) {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function ReviewEdit({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={onClick}
+      className="h-9 rounded-xl border-[#E4DDD4] px-4 text-xs font-medium"
+    >
+      Edit
+    </Button>
+  );
+}
+
+function ReviewMark({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-2 text-sm text-[#3F342C] dark:text-foreground">
+      <span className={on ? "text-[#2F6B4F]" : "text-[#B7A89C]"}>{on ? "✓" : "–"}</span>
+      <span className={on ? "" : "text-[#8C7D73]"}>{children}</span>
+    </p>
+  );
+}
+
+const selectClass =
+  "h-11 w-full appearance-none rounded-xl border border-[#EBE3D9] bg-[#FAF8F5] px-4 pr-10 text-xs text-foreground dark:border-border dark:bg-muted/40";
+
+function AgencyClientPicker({
+  clients,
+  clientId,
+  error,
+  fieldError,
+  firstNameError,
+  lastNameError,
+  emailError,
+  onClientChange,
+  register,
+}: {
+  clients: AgencyClientOption[];
+  clientId: string;
+  error?: string;
+  fieldError: (message?: string) => React.ReactNode;
+  firstNameError?: string;
+  lastNameError?: string;
+  emailError?: string;
+  onClientChange: (value: string) => void;
+  register: UseFormRegister<BasicsFormValues>;
+}) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-[#EBE3D9] bg-[#FCFBF9] p-4 dark:border-border">
+      <div className="space-y-2">
+        <Label htmlFor="event-client" className="text-xs font-semibold text-foreground">
+          Client <span className="text-rose-500">*</span>
+        </Label>
+        <div className="relative">
+          <select
+            id="event-client"
+            className={selectClass}
+            value={clientId}
+            onChange={(event) => onClientChange(event.target.value)}
+          >
+            <option value="">{clients.length ? "Select a previous client" : "No previous clients yet"}</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+                {client.contactEmail ? ` · ${client.contactEmail}` : ""}
+              </option>
+            ))}
+            <option value="__new__">Add a new client</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        </div>
+        {fieldError(error)}
+      </div>
+      {clientId === "__new__" && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">First name</Label>
+            <Input className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="Enter first name" {...register("clientFirstName")} />
+            {fieldError(firstNameError)}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Last name</Label>
+            <Input className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="Enter last name" {...register("clientLastName")} />
+            {fieldError(lastNameError)}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Email address</Label>
+            <Input type="email" className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="name@example.com" {...register("clientEmail")} />
+            {fieldError(emailError)}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Phone number</Label>
+            <Input className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="+234" {...register("clientPhone")} />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label className="text-xs font-semibold">Organization (optional)</Label>
+            <Input className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="Enter organization name" {...register("clientOrganization")} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgencyTeamPicker({
+  members,
+  selected,
+  adding,
+  fieldError,
+  nameError,
+  roleError,
+  emailError,
+  teamError,
+  roles = ["Admin", "Gate Staff"],
+  onToggle,
+  onAddingChange,
+  register,
+}: {
+  members: AgencyTeamMemberRow[];
+  selected: string[];
+  adding: boolean;
+  fieldError: (message?: string) => React.ReactNode;
+  nameError?: string;
+  roleError?: string;
+  emailError?: string;
+  teamError?: string;
+  roles?: Array<"Admin" | "Gate Staff">;
+  onToggle: (token: string) => void;
+  onAddingChange: (value: boolean) => void;
+  register: UseFormRegister<BasicsFormValues>;
+}) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-[#EBE3D9] bg-[#FCFBF9] p-4 dark:border-border">
+      <div>
+        <p className="text-xs font-semibold text-foreground">Event team</p>
+        <p className="mt-1 text-xs text-[#736B66]">Choose previous team members, or add someone who is not on the team yet.</p>
+      </div>
+      {members.length === 0 ? (
+        <p className="text-xs text-[#736B66]">No previous team members yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {members.map((member) => {
+            const token = `${member.kind}:${member.id}`;
+            return (
+              <label key={token} className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(token)}
+                  onChange={() => onToggle(token)}
+                />
+                <span>
+                  <span className="block font-medium text-[#1F140E]">{member.name}</span>
+                  <span className="block text-xs text-[#8C7D73]">{member.role} · {member.email}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+      {fieldError(teamError)}
+      <label className="flex items-center gap-2 text-xs font-semibold text-[#6E3B1C]">
+        <input type="checkbox" checked={adding} onChange={(event) => onAddingChange(event.target.checked)} />
+        Add a new team member
+      </label>
+      {adding && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label className="text-xs font-semibold">Full name</Label>
+            <Input className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="Enter full name" {...register("teamName")} />
+            {fieldError(nameError)}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Role</Label>
+            <select className={selectClass} {...register("teamRole")}>
+              <option value="">Select Role</option>
+              {roles.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+            {fieldError(roleError)}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Phone number</Label>
+            <Input className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="+234" {...register("teamPhone")} />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label className="text-xs font-semibold">Email address</Label>
+            <Input type="email" className="h-11 rounded-xl border-[#EBE3D9] bg-white px-4 text-xs" placeholder="name@example.com" {...register("teamEmail")} />
+            {fieldError(emailError)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgencyEventReview({
+  clientLabel,
+  teamLabel,
+  eventName,
+  eventType,
+  eventDate,
+  timeLabel,
+  expectedGuests,
+  venue,
+  address,
+  parking,
+  dressCode,
+  notes,
+  guests,
+  template,
+  inviteTitle,
+  inviteSubHeader,
+  inviteMessage,
+  experience,
+  busy,
+  canPublish,
+  onEdit,
+  onBack,
+  onPublish,
+}: {
+  eventName: string;
+  eventType: string;
+  eventDate: string;
+  timeLabel: string;
+  expectedGuests: string;
+  venue: string;
+  address: string;
+  parking: string;
+  dressCode: string;
+  notes: string;
+  guests: WizardGuest[];
+  template: InvitationTemplateItem;
+  inviteTitle: string;
+  inviteSubHeader: string;
+  inviteMessage: string;
+  experience: ExperienceFormValues;
+  busy: boolean;
+  canPublish: boolean;
+  onEdit: (step: StepKey) => void;
+  onBack: () => void;
+  onPublish: () => void;
+  clientLabel: string;
+  teamLabel: string;
+}) {
+  const counts = {
+    total: guests.length,
+    accepted: guests.filter((guest) => guest.rsvpStatus === "Accepted").length,
+    pending: guests.filter((guest) => guest.rsvpStatus === "Pending").length,
+    declined: guests.filter((guest) => guest.rsvpStatus === "Declined").length,
+    notSent: guests.filter((guest) => guest.rsvpStatus === "Not Sent").length,
+  };
+  const collected = [
+    experience.collectPartySize ? "Party Size (Plus Ones)" : "",
+    experience.collectAccessibility ? "Accessibility" : "",
+    experience.collectProtocol ? "Protocol" : "",
+    experience.collectDietary ? "Dietary needs" : "",
+    experience.collectRelationship ? "Relationship" : "",
+    experience.collectSeating ? "Seating" : "",
+  ].filter(Boolean);
+  const responses = [
+    experience.allowConfirmed ? "Confirmed" : "",
+    experience.allowTentative ? "Tentative" : "",
+    experience.allowDeclined ? "Declined" : "",
+  ].filter(Boolean);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1 px-1">
+        <h2 className="font-serif text-3xl font-medium text-[#1F140E] dark:text-foreground">
+          Review Your Event
+        </h2>
+        <p className="text-sm text-[#736B66]">
+          Review all details before completing your event creation. You can edit any section below.
+        </p>
+      </div>
+
+      <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5 shadow-2xs dark:border-border dark:bg-card md:p-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h3 className="font-serif text-xl text-[#1F140E] dark:text-foreground">Event Basics</h3>
+          <ReviewEdit onClick={() => onEdit("basics")} />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-[#8C7D73]">Client</p>
+              <p className="mt-1 text-sm font-semibold text-[#1F140E] dark:text-foreground">{clientLabel}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Team</p>
+              <p className="mt-1 text-sm font-semibold text-[#1F140E] dark:text-foreground">{teamLabel}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Event Name</p>
+              <p className="mt-1 text-sm font-semibold text-[#1F140E] dark:text-foreground">{eventName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Event Type</p>
+              <p className="mt-1 text-sm font-semibold text-[#1F140E] dark:text-foreground">{eventType}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Expected Guests</p>
+              <p className="mt-1 text-sm font-semibold text-[#1F140E] dark:text-foreground">{expectedGuests}</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-[#8C7D73]">Event Date</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-[#1F140E] dark:text-foreground">
+                <CalendarDays className="size-4 text-[#C45C4A]" />
+                {eventDate}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Time</p>
+              <p className="mt-1 text-sm font-semibold text-[#1F140E] dark:text-foreground">{timeLabel}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Venue</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-[#1F140E] dark:text-foreground">
+                <MapPin className="size-4 text-[#7A3B18]" />
+                {venue}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5 shadow-2xs dark:border-border dark:bg-card md:p-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h3 className="font-serif text-xl text-[#1F140E] dark:text-foreground">Event Details</h3>
+          <ReviewEdit onClick={() => onEdit("details")} />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-[#8C7D73]">Full Venue Address</p>
+              <p className="mt-1 text-sm text-[#1F140E] dark:text-foreground">{address}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Parking Information</p>
+              <p className="mt-1 text-sm text-[#1F140E] dark:text-foreground">{parking}</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-[#8C7D73]">Dress Code</p>
+              <p className="mt-1 text-sm text-[#1F140E] dark:text-foreground">{dressCode}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Additional Notes</p>
+              <p className="mt-1 text-sm text-[#1F140E] dark:text-foreground">{notes}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5 shadow-2xs dark:border-border dark:bg-card md:p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-serif text-xl text-[#1F140E] dark:text-foreground">Guests</h3>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => onEdit("guests")}
+              className="h-9 rounded-xl bg-[#241710] px-3 text-xs text-white hover:bg-[#38261C]"
+            >
+              <Send className="mr-1.5 size-3.5" />
+              Send Invitation
+            </Button>
+            <ReviewEdit onClick={() => onEdit("guests")} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {[
+            { label: "Total", value: counts.total, className: "bg-[#F4F1EC] text-[#3F342C]" },
+            { label: "Accepted", value: counts.accepted, className: "bg-[#E7F6EC] text-[#2F6B4F]" },
+            { label: "Pending", value: counts.pending, className: "bg-[#FFF6D8] text-[#8A6A12]" },
+            { label: "Declined", value: counts.declined, className: "bg-[#FDECEC] text-[#A33B3B]" },
+            { label: "Not Sent", value: counts.notSent, className: "bg-[#F7F1EA] text-[#6F6258]" },
+          ].map((item) => (
+            <div key={item.label} className={`rounded-xl px-3 py-4 text-center ${item.className}`}>
+              <p className="font-serif text-2xl">{item.value}</p>
+              <p className="text-xs">{item.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5 shadow-2xs dark:border-border dark:bg-card md:p-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h3 className="font-serif text-xl text-[#1F140E] dark:text-foreground">Invitation</h3>
+          <ReviewEdit onClick={() => onEdit("invitation")} />
+        </div>
+        <div className="flex flex-col gap-5 sm:flex-row">
+          <div className="w-full max-w-[140px] rounded-xl border border-[#E7D7C3] bg-[#FBF6EE] p-3 text-center">
+            <p className="font-serif text-xs text-[#7C6651]">You are invited</p>
+            <p className="mt-2 font-serif text-sm text-[#1F140E]">{template.names}</p>
+            <p className="mt-1 text-[10px] tracking-wide text-[#B5996B]">{template.dateText}</p>
+            <p className="mt-3 text-[10px] text-[#6F6258]">{template.name}</p>
+            <p className="text-[10px] text-[#8C7D73]">{template.tag}</p>
+          </div>
+          <div className="space-y-3 text-sm">
+            <div>
+              <p className="text-xs text-[#8C7D73]">Event Title</p>
+              <p className="mt-1 font-semibold text-[#1F140E] dark:text-foreground">{inviteTitle}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Sub Header</p>
+              <p className="mt-1 text-[#1F140E] dark:text-foreground">{inviteSubHeader}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Invitation Message</p>
+              <p className="mt-1 text-[#1F140E] dark:text-foreground">{inviteMessage}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5 shadow-2xs dark:border-border dark:bg-card md:p-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h3 className="font-serif text-xl text-[#1F140E] dark:text-foreground">Guest Experience</h3>
+          <ReviewEdit onClick={() => onEdit("experience")} />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-[#8C7D73]">Languages</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(experience.languages?.length ? experience.languages : ["English"]).map((language) => (
+                  <span
+                    key={language}
+                    className={`rounded-full px-3 py-1 text-xs ${
+                      language === "English"
+                        ? "bg-[#241710] text-white"
+                        : "bg-[#F4EFE8] text-[#3F342C]"
+                    }`}
+                  >
+                    {language === "English" ? "English (Default)" : language}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs text-[#8C7D73]">RSVP Methods</p>
+              <ReviewMark on={experience.methodOneClick}>
+                One-Click Button (Standard web button RSVP)
+              </ReviewMark>
+              <ReviewMark on={experience.methodText}>
+                {experience.methodText ? "Text Message" : "Text Message (not enabled)"}
+              </ReviewMark>
+              <ReviewMark on={experience.methodVoice}>
+                {experience.methodVoice ? "Voice Message" : "Voice Message (not enabled)"}
+              </ReviewMark>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs text-[#8C7D73]">Information Collected</p>
+              {collected.length === 0 ? (
+                <p className="text-sm text-[#8C7D73]">None selected</p>
+              ) : (
+                collected.map((item) => (
+                  <ReviewMark key={item} on>
+                    {item}
+                  </ReviewMark>
+                ))
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Guest Responses Enabled</p>
+              <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-[#1F140E] dark:text-foreground">
+                {responses.length === 0
+                  ? "None"
+                  : responses.map((item) => (
+                      <span key={item}>✓ {item}</span>
+                    ))}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[#8C7D73]">Follow-up</p>
+              <p className="mt-1 text-sm text-[#1F140E] dark:text-foreground">
+                {experience.sendTentativeReminder
+                  ? `Reminder ${experience.reminderLead} RSVP deadline${
+                      experience.rsvpDeadline ? ` (${formatReviewDeadline(experience.rsvpDeadline)})` : ""
+                    }`
+                  : "No follow-up reminder"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-4 px-1 pt-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-[#1F140E] dark:text-foreground">Ready to publish?</p>
+          <p className="text-xs text-[#8C7D73]">
+            Once created, invitations will be sent and guests can begin RSVPing.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" onClick={onBack} className="h-11 rounded-xl px-5 text-xs">
+            ← Back
+          </Button>
+          <Button
+            type="button"
+            disabled={busy || !canPublish}
+            onClick={onPublish}
+            className="h-11 rounded-xl bg-[#6E3B1C] px-5 text-xs font-semibold text-white hover:bg-[#5C3117] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? "Publishing…" : "Complete & Publish"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

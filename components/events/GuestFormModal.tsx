@@ -43,10 +43,19 @@ interface GuestFormModalProps {
   onOpenChange: (open: boolean) => void;
   guest?: EventGuest | null;
   busy?: boolean;
+  /** Live events send the invitation as soon as the guest is saved. */
+  sendOnAdd?: boolean;
   onSubmit: (payload: AddGuestPayload) => Promise<void>;
 }
 
-export function GuestFormModal({ open, onOpenChange, guest, busy = false, onSubmit }: GuestFormModalProps) {
+export function GuestFormModal({
+  open,
+  onOpenChange,
+  guest,
+  busy = false,
+  sendOnAdd = false,
+  onSubmit,
+}: GuestFormModalProps) {
   const isEdit = Boolean(guest);
   const {
     register,
@@ -95,8 +104,12 @@ export function GuestFormModal({ open, onOpenChange, guest, busy = false, onSubm
             <X className="size-5" />
           </button>
         </div>
-        <DialogDescription className="sr-only">
-          {isEdit ? 'Update this guest’s details.' : 'Add a guest to this event.'}
+        <DialogDescription className={isEdit || !sendOnAdd ? 'sr-only' : 'text-xs text-[#736B66]'}>
+          {isEdit
+            ? 'Update this guest’s details.'
+            : sendOnAdd
+              ? 'The guest is saved and the invitation is sent on the channel below.'
+              : 'Add a guest to this event.'}
         </DialogDescription>
 
         <form onSubmit={submit} className="mt-2 space-y-4" noValidate>
@@ -153,7 +166,7 @@ export function GuestFormModal({ open, onOpenChange, guest, busy = false, onSubm
           </div>
 
           <button type="submit" disabled={busy} className={`${brownButton} h-12 w-full text-base disabled:opacity-60`}>
-            {busy ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Guest'}
+            {busy ? 'Saving…' : isEdit ? 'Save Changes' : sendOnAdd ? 'Add & send invitation' : 'Add Guest'}
           </button>
         </form>
       </DialogContent>

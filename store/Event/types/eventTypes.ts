@@ -84,6 +84,7 @@ export interface EventGuest {
   qrCode?: string;
   isFlagged?: boolean;
   tableSeat?: string;
+  invitation?: { sent: boolean; channel: string; error?: string } | null;
 }
 
 export interface CheckInActivityStreamItem {
@@ -142,6 +143,22 @@ export interface CreateEventPayload {
   format?: EventFormat;
   city?: string;
   country?: string;
+  agencyClientId?: string;
+  venueSpaceId?: string;
+  clientName?: string;
+  newClient?: {
+    name: string;
+    contactEmail: string;
+    contactPhone?: string;
+    industry?: string;
+  };
+  team?: Array<{ memberId: string; kind: "admin" | "gate" }>;
+  newTeamMember?: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    role: "Admin" | "Gate Staff";
+  };
 }
 
 export type UpdateEventPayload = Partial<CreateEventPayload>;
@@ -161,12 +178,14 @@ export interface AddGuestPayload {
   checkInStatus?: string;
   inviteThrough?: string;
   preference?: string;
+  sendInvite?: boolean;
 }
 
 export type UpdateGuestPayload = Partial<AddGuestPayload>;
 
 export interface BulkAddGuestsPayload {
   guests: AddGuestPayload[];
+  sendInvites?: boolean;
 }
 
 export interface AssignSeatingPayload {
@@ -249,6 +268,7 @@ export type AddGuestResponse = ApiResponse<EventGuest>;
 export type BulkAddGuestsResponse = ApiResponse<{
   importedCount: number;
   guests: EventGuest[];
+  invitations?: { sent: number; failed: number; emailError?: string | null } | null;
 }>;
 
 export type GetEventSeatingResponse = ApiResponse<{

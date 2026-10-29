@@ -4,30 +4,95 @@ import { EVENT_TYPES, GUEST_GROUPS } from "@/store/eventSlice/eventSlice";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-export const basicsSchema = z
-  .object({
-    eventName: z.string().trim().min(2, "Enter an event name"),
-    eventType: z.enum(EVENT_TYPES, { message: "Choose an event type" }),
-    eventDate: z
-      .string()
-      .min(1, "Choose the event date")
-      .refine((value) => value >= todayIso(), "Choose a date from today onwards"),
-    expectedGuests: z
-      .string()
-      .refine(
-        (value) => value.trim() === "" || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 100000),
-        "Enter a guest count between 1 and 100,000",
-      ),
-    startTime: z.string().min(1, "Choose a start time"),
-    endTime: z.string(),
-    venue: z.string().trim().min(2, "Enter the venue or location"),
-  })
-  .refine((value) => !value.endTime || value.endTime > value.startTime, {
-    message: "End time must be after the start time",
-    path: ["endTime"],
-  });
+export function basicsSchemaFor(kind: "individual" | "agency" | "venue" = "individual") {
+  return z
+    .object({
+      audience: z.enum(["agency", "client"]),
+      clientName: z.string(),
+      clientId: z.string(),
+      clientFirstName: z.string(),
+      clientLastName: z.string(),
+      clientEmail: z.string(),
+      clientPhone: z.string(),
+      clientOrganization: z.string(),
+      teamIds: z.array(z.string()),
+      addTeam: z.boolean(),
+      teamName: z.string(),
+      teamRole: z.string(),
+      teamEmail: z.string(),
+      teamPhone: z.string(),
+      spaceId: z.string(),
+      eventName: z.string().trim().min(2, "Enter an event name"),
+      eventType: z.enum(EVENT_TYPES, { message: "Choose an event type" }),
+      eventDate: z
+        .string()
+        .min(1, "Choose the event date")
+        .refine((value) => value >= todayIso(), "Choose a date from today onwards"),
+      expectedGuests: z
+        .string()
+        .refine(
+          (value) => value.trim() === "" || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 100000),
+          "Enter a guest count between 1 and 100,000",
+        ),
+      startTime: z.string().min(1, "Choose a start time"),
+      endTime: z.string(),
+      venue: z.string().trim().min(2, "Enter the venue or location"),
+    })
+    .superRefine((value, ctx) => {
+      if (value.endTime && value.endTime <= value.startTime) {
+        ctx.addIssue({
+          code: "custom",
+          message: "End time must be after the start time",
+          path: ["endTime"],
+        });
+      }
+      if (kind === "agency" && value.audience === "client") {
+        const adding = value.clientId === "__new__";
+        if (!value.clientId) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Select a previous client or add a new one",
+            path: ["clientId"],
+          });
+        }
+        if (adding && value.clientFirstName.trim().length < 2) {
+          ctx.addIssue({ code: "custom", message: "Enter the first name", path: ["clientFirstName"] });
+        }
+        if (adding && !value.clientLastName.trim()) {
+          ctx.addIssue({ code: "custom", message: "Enter the last name", path: ["clientLastName"] });
+        }
+        if (adding && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.clientEmail.trim())) {
+          ctx.addIssue({ code: "custom", message: "Enter a valid email address", path: ["clientEmail"] });
+        }
+      }
+      if (kind === "venue") {
+        if (!value.spaceId) {
+          ctx.addIssue({ code: "custom", message: "Select a venue", path: ["spaceId"] });
+        }
+        if (value.clientName.trim().length < 2) {
+          ctx.addIssue({ code: "custom", message: "Enter the client name", path: ["clientName"] });
+        }
+        if (value.teamIds.length === 0 && !value.addTeam) {
+          ctx.addIssue({ code: "custom", message: "Select a team member or add a new one", path: ["teamIds"] });
+        }
+      }
+      if ((kind === "agency" || kind === "venue") && value.addTeam) {
+        if (value.teamName.trim().length < 2) {
+          ctx.addIssue({ code: "custom", message: "Enter the full name", path: ["teamName"] });
+        }
+        if (value.teamRole !== "Admin" && value.teamRole !== "Gate Staff") {
+          ctx.addIssue({ code: "custom", message: "Select a role", path: ["teamRole"] });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.teamEmail.trim())) {
+          ctx.addIssue({ code: "custom", message: "Enter a valid email address", path: ["teamEmail"] });
+        }
+      }
+    });
+}
 
-export type BasicsFormValues = z.infer<typeof basicsSchema>;
+export const basicsSchema = basicsSchemaFor("individual");
+
+export type BasicsFormValues = z.infer<ReturnType<typeof basicsSchemaFor>>;
 
 export const detailsSchema = z.object({
   fullVenueAddress: z.string().trim().min(5, "Enter the full venue address"),
@@ -40,6 +105,13 @@ export type DetailsFormValues = z.infer<typeof detailsSchema>;
 
 export const guestEntrySchema = z.object({
   name: z.string().trim().min(2, "Enter the guest name"),
+  email: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      "Enter a valid email",
+    ),
   group: z.enum(GUEST_GROUPS, { message: "Choose a guest group" }),
   phone: z
     .string()

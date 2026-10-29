@@ -2,262 +2,275 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {
-  Plus,
-  ArrowRight,
-  Search,
-} from 'lucide-react';
+import { MoreHorizontal, Plus, Search } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { MOCK_AGENCY_CLIENTS, AgencyClient } from '@/lib/mock-data/agency';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  archiveAgencyClient,
+  getAgencyClients,
+  type AgencyClientOption,
+} from '@/lib/api/agency-dashboard';
+
+type StatusFilter = 'all' | 'active' | 'archived';
+type SortKey = 'newest' | 'oldest' | 'events';
 
 export default function AgencyClientsPage() {
-  const [clients, setClients] = React.useState<AgencyClient[]>(MOCK_AGENCY_CLIENTS);
+  const [clients, setClients] = React.useState<AgencyClientOption[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
   const [search, setSearch] = React.useState('');
-  const [isAddClientOpen, setIsAddClientOpen] = React.useState(false);
+  const [status, setStatus] = React.useState<StatusFilter>('all');
+  const [sort, setSort] = React.useState<SortKey>('newest');
+  const [selected, setSelected] = React.useState<string[]>([]);
 
-  // New Client Form
-  const [name, setName] = React.useState('');
-  const [org, setOrg] = React.useState('');
-  const [email, setEmail] = React.useState('');
-  const [phone, setPhone] = React.useState('');
+  const load = React.useCallback(async () => {
+    setError('');
+    try {
+      const rows = await getAgencyClients();
+      setClients(Array.isArray(rows) ? rows : []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Clients could not be loaded');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleAddClient = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !email) return;
+  React.useEffect(() => {
+    void load();
+  }, [load]);
 
-    const newClient: AgencyClient = {
-      id: `cli-${Date.now()}`,
-      name,
-      type: `Individual client · ${org || 'Private'}`,
-      organization: org || 'Private Client',
-      industry: 'Events & Hospitality',
-      contactPerson: name,
-      contactEmail: email,
-      contactPhone: phone || '+234 800 000 0000',
-      clientSince: 'Today',
-      activeEventsCount: 0,
-      upcomingEventsCount: 0,
-      completedEventsCount: 0,
-      totalSpend: 0,
-      currency: '₦',
-      status: 'active',
-      logo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      events: [],
-      activities: [],
-    };
+  const visible = React.useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const filtered = clients.filter((client) => {
+      const archived = client.status === 'archived';
+      if (status === 'active' && archived) return false;
+      if (status === 'archived' && !archived) return false;
+      if (!query) return true;
+      return [client.name, client.contactPerson, client.contactEmail, client.contactPhone]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+    return [...filtered].sort((a, b) => {
+      if (sort === 'events') return (b.totalEvents || 0) - (a.totalEvents || 0);
+      const aTime = new Date(a.createdAt || 0).getTime();
+      const bTime = new Date(b.createdAt || 0).getTime();
+      return sort === 'oldest' ? aTime - bTime : bTime - aTime;
+    });
+  }, [clients, search, sort, status]);
 
-    setClients([newClient, ...clients]);
-    setIsAddClientOpen(false);
-    setName('');
-    setOrg('');
-    setEmail('');
-    setPhone('');
+  const metrics = {
+    total: clients.length,
+    active: clients.filter((client) => client.status !== 'archived').length,
+    events: clients.reduce((sum, client) => sum + (client.totalEvents || 0), 0),
   };
 
-  const filtered = clients.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.organization.toLowerCase().includes(search.toLowerCase()) ||
-      c.contactEmail.toLowerCase().includes(search.toLowerCase())
-  );
+  const archive = async (client: AgencyClientOption) => {
+    try {
+      await archiveAgencyClient(client.id);
+      toast.success(`${client.name} archived`);
+      await load();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Client could not be archived');
+    }
+  };
+
+  const toggleAll = () => {
+    setSelected((current) =>
+      current.length === visible.length ? [] : visible.map((client) => client.id),
+    );
+  };
 
   return (
-    <AppShell
-      currentRole="organizer_agency"
-      title="Client Accounts"
-      subtitle="Corporate retainers, executive sponsors, and contracted client portfolios."
-      primaryAction={{
-        label: '+ Add Client',
-        href: '#',
-      }}
-    >
-      <div className="space-y-6">
-        {/* Search & Actions Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search clients by name, organization..."
-              className="pl-9 text-xs rounded-xl border-border/80"
-            />
+    <AppShell currentRole="organizer_agency">
+      <div className="space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-4xl font-medium text-[#1F140E]">Clients</h1>
+            <p className="mt-1 text-sm text-[#736B66]">
+              Manage client relationships and keep every event connected.
+            </p>
           </div>
-
           <Button
-            onClick={() => setIsAddClientOpen(true)}
-            className="bg-[#6E3B1C] hover:bg-[#5C3117] text-white text-xs rounded-xl h-9"
+            asChild
+            className="h-10 rounded-xl bg-[#241710] px-4 text-xs font-semibold text-white hover:bg-[#38261C]"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
-            <span>Add Client Account</span>
+            <Link href="/organizer/agency/clients/new">
+              <Plus className="mr-1.5 size-4" />
+              Add Client
+            </Link>
           </Button>
         </div>
 
-        {/* Clients Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((client) => (
-            <Card
-              key={client.id}
-              className="rounded-2xl border-border/80 bg-card shadow-xs hover:border-[#6E3B1C]/40 hover:shadow-md transition-all flex flex-col justify-between"
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Metric value={metrics.total} label="Total Clients" />
+          <Metric value={metrics.active} label="Active Clients" />
+          <Metric value={metrics.events} label="Total Events" />
+        </div>
+
+        <div className="rounded-2xl border border-[#EBE3D9] bg-white">
+          <div className="flex flex-col gap-3 border-b border-[#EFEAE4] p-4 sm:flex-row sm:items-center">
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8C7D73]" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search"
+                className="h-10 rounded-xl border-[#EBE3D9] pl-9 text-sm"
+              />
+            </div>
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value as StatusFilter)}
+              className="h-10 rounded-xl border border-[#EBE3D9] bg-white px-3 text-sm text-[#3F342C]"
             >
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-12 h-12 rounded-2xl border border-border">
-                      <AvatarImage src={client.logo} alt={client.name} />
-                      <AvatarFallback className="font-bold text-sm bg-[#6E3B1C]/10 text-[#6E3B1C]">
-                        {client.name.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-semibold text-base text-foreground">{client.name}</h4>
-                      <p className="text-xs text-muted-foreground">{client.organization}</p>
-                    </div>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] capitalize ${
-                      client.status === 'active'
-                        ? 'text-emerald-600 border-emerald-300'
-                        : 'text-amber-600 border-amber-300'
-                    }`}
-                  >
-                    {client.status}
-                  </Badge>
-                </div>
+              <option value="all">Status</option>
+              <option value="active">Active</option>
+              <option value="archived">Archive</option>
+            </select>
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as SortKey)}
+              className="h-10 rounded-xl border border-[#EBE3D9] bg-white px-3 text-sm text-[#3F342C]"
+            >
+              <option value="newest">Sort: Newest</option>
+              <option value="oldest">Sort: Oldest</option>
+              <option value="events">Sort: Most events</option>
+            </select>
+          </div>
 
-                <div className="space-y-2 py-3 border-y border-border/60 text-xs">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Contact:</span>
-                    <span className="font-medium text-foreground">{client.contactEmail}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Active Events:</span>
-                    <span className="font-bold text-[#6E3B1C]">{client.activeEventsCount}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Client Since:</span>
-                    <span className="text-foreground">{client.clientSince}</span>
-                  </div>
-                </div>
+          {loading && <p className="p-6 text-sm text-[#736B66]">Loading clients…</p>}
+          {error && <p className="p-6 text-sm text-[#B33927]">{error}</p>}
+          {!loading && !error && visible.length === 0 && (
+            <p className="p-6 text-sm text-[#736B66]">No clients match this view.</p>
+          )}
 
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    asChild
-                    size="sm"
-                    className="flex-1 text-xs bg-[#6E3B1C] hover:bg-[#5C3117] text-white rounded-xl h-8"
-                  >
-                    <Link href={`/organizer/agency/clients/${client.id}`}>
-                      <span>View Details</span>
-                      <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs rounded-xl"
-                  >
-                    <Link href={`/organizer/agency/events/create?clientId=${client.id}`}>
-                      + Event
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {!loading && !error && visible.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="text-xs text-[#8C7D73]">
+                  <tr className="border-b border-[#EFEAE4]">
+                    <th className="w-12 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.length > 0 && selected.length === visible.length}
+                        onChange={toggleAll}
+                        aria-label="Select all clients"
+                      />
+                    </th>
+                    <th className="px-3 py-3 font-medium">Staff Member</th>
+                    <th className="px-3 py-3 font-medium">Contact Info</th>
+                    <th className="px-3 py-3 font-medium">Total Events</th>
+                    <th className="px-3 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 text-right font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((client) => {
+                    const archived = client.status === 'archived';
+                    const label = client.name;
+                    return (
+                      <tr key={client.id} className="border-b border-[#F4EFEA] last:border-0">
+                        <td className="px-4 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selected.includes(client.id)}
+                            onChange={() =>
+                              setSelected((current) =>
+                                current.includes(client.id)
+                                  ? current.filter((id) => id !== client.id)
+                                  : [...current, client.id],
+                              )
+                            }
+                            aria-label={`Select ${label}`}
+                          />
+                        </td>
+                        <td className="px-3 py-4">
+                          <Link
+                            href={`/organizer/agency/clients/${client.id}`}
+                            className="flex items-center gap-3 hover:underline"
+                          >
+                            <span className="grid size-9 place-items-center rounded-full bg-[#F3E6D8] text-xs font-semibold text-[#6E3B1C]">
+                              {label.slice(0, 1).toUpperCase()}
+                            </span>
+                            <span>
+                              <span className="block font-medium text-[#1F140E]">{label}</span>
+                              <span className="block text-xs text-[#8C7D73]">{client.contactEmail}</span>
+                            </span>
+                          </Link>
+                        </td>
+                        <td className="px-3 py-4 text-[#3F342C]">{client.contactEmail}</td>
+                        <td className="px-3 py-4 text-[#3F342C]">{client.totalEvents || 0}</td>
+                        <td className="px-3 py-4">
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                              archived
+                                ? 'bg-[#F4F1EC] text-[#6F6258]'
+                                : 'bg-[#E7F6EC] text-[#2F6B4F]'
+                            }`}
+                          >
+                            {archived ? 'Archive' : 'Active'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="rounded-lg p-1.5 text-[#6F6258] hover:bg-[#F7F1EA]"
+                                aria-label={`Actions for ${label}`}
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/organizer/agency/clients/${client.id}`}>View Client</Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/organizer/agency/clients/${client.id}/edit`}>Edit Client</Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/organizer/agency/events/create?clientId=${client.id}`}>
+                                  Create Event
+                                </Link>
+                              </DropdownMenuItem>
+                              {!archived && (
+                                <DropdownMenuItem
+                                  onClick={() => void archive(client)}
+                                  className="text-[#C44536] focus:text-[#C44536]"
+                                >
+                                  Archive Client
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Add Client Modal */}
-      <Dialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-serif font-bold text-lg">Add Client Account</DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Add a new corporate or individual client to your agency management roster.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleAddClient} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Client Full Name *</Label>
-              <Input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Amara Okafor"
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Organization / Brand</Label>
-              <Input
-                value={org}
-                onChange={(e) => setOrg(e.target.value)}
-                placeholder="e.g. Oak & Ivory"
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Email Address *</Label>
-              <Input
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="amara@oakandivory.com"
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Phone Number</Label>
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+234 803 445 0198"
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <DialogFooter className="pt-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAddClientOpen(false)}
-                className="text-xs"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="text-xs bg-[#6E3B1C] hover:bg-[#5C3117] text-white"
-              >
-                Create Account
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </AppShell>
+  );
+}
+
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-2xl border border-[#EBE3D9] bg-white px-5 py-4">
+      <p className="font-serif text-3xl text-[#6E3B1C]">{value}</p>
+      <p className="text-sm text-[#736B66]">{label}</p>
+    </div>
   );
 }

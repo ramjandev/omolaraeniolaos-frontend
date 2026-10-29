@@ -135,6 +135,35 @@ export async function submitGuestRsvp(body: {
   return readJson(res);
 }
 
+export interface VoiceRsvpResult {
+  transcribedText: string;
+  confidence: number;
+  languageDetected: string;
+  rsvpStatus: 'CONFIRMED' | 'DECLINED' | 'TENTATIVE';
+  guestCount: number;
+  dietaryOrNotes?: string;
+}
+
+export async function submitVoiceRsvp(body: {
+  audioBase64: string;
+  mimeType?: string;
+  languageCode?: string;
+  attendeeId?: string | null;
+  eventId?: string | null;
+}): Promise<VoiceRsvpResult> {
+  const res = await fetch(`${API_ROOT}/voice-rsvp/process`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = typeof json?.message === 'string' ? json.message : 'Voice RSVP could not be transcribed';
+    throw new Error(message);
+  }
+  return (json?.data ?? json) as VoiceRsvpResult;
+}
+
 export interface GateWorkspace {
   staff: {
     id: string;

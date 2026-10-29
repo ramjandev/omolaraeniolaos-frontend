@@ -188,7 +188,7 @@ export function AppSidebar({
                   </p>
                 </div>
                 <Link
-                  href={currentRole === 'organizer_agency' ? '/organizer/agency/pricing' : currentRole === 'organizer_venue' ? '/organizer/venue/billing' : '/organizer/individual/billing'}
+                  href={currentRole === 'organizer_agency' ? '/organizer/agency/billing' : currentRole === 'organizer_venue' ? '/organizer/venue/billing' : '/organizer/individual/billing'}
                   className="block w-full rounded-md border border-[#C98A5E]/60 bg-[#6B3416] px-3 py-2 text-center text-[11px] font-semibold text-white shadow-xs transition-colors hover:bg-[#5A2B12]"
                 >
                   Become an Organizer

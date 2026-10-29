@@ -149,6 +149,7 @@ export interface RegisterVenuePayload extends RegisterAccountFields {
 export interface PayPlanPayload {
   planId: string;
   redirectUrl?: string;
+  billingCycle?: string;
 }
 
 export interface MessageResponse {

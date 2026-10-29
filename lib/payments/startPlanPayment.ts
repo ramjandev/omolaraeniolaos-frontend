@@ -17,9 +17,9 @@ export function readCheckoutUrl(data: unknown): string | null {
 export function useStartPlanPayment() {
   const [payPlan, { isLoading }] = usePayPlanMutation();
 
-  const startPlanPayment = async (planId: string, redirectUrl: string) => {
+  const startPlanPayment = async (planId: string, redirectUrl: string, billingCycle?: string) => {
     try {
-      const result = await payPlan({ planId, redirectUrl }).unwrap();
+      const result = await payPlan({ planId, redirectUrl, billingCycle }).unwrap();
       const checkoutUrl = readCheckoutUrl(result.data);
       if (checkoutUrl) {
         window.location.assign(checkoutUrl);

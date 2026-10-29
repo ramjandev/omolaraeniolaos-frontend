@@ -7,6 +7,7 @@ export const WIZARD_STEPS = [
   "invitation",
   "experience",
   "payment",
+  "review",
 ] as const;
 
 export type WizardStep = (typeof WIZARD_STEPS)[number];
@@ -43,6 +44,21 @@ export interface WizardGuest {
 }
 
 export interface EventBasics {
+  audience: "agency" | "client";
+  clientName: string;
+  clientId: string;
+  clientFirstName: string;
+  clientLastName: string;
+  clientEmail: string;
+  clientPhone: string;
+  clientOrganization: string;
+  teamIds: string[];
+  addTeam: boolean;
+  teamName: string;
+  teamRole: string;
+  teamEmail: string;
+  teamPhone: string;
+  spaceId: string;
   eventName: string;
   eventType: (typeof EVENT_TYPES)[number];
   eventDate: string;
@@ -133,6 +149,21 @@ export interface EventWizardState {
 export const initialEventWizardState: EventWizardState = {
   activeStep: "basics",
   basics: {
+    audience: "client",
+    clientName: "",
+    clientId: "",
+    clientFirstName: "",
+    clientLastName: "",
+    clientEmail: "",
+    clientPhone: "",
+    clientOrganization: "",
+    teamIds: [],
+    addTeam: false,
+    teamName: "",
+    teamRole: "",
+    teamEmail: "",
+    teamPhone: "",
+    spaceId: "",
     eventName: "",
     eventType: "Gala",
     eventDate: "",

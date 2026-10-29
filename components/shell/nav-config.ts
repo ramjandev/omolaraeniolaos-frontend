@@ -27,7 +27,7 @@ export const ROLE_NAV_CONFIG: Record<UserRole, NavItem[]> = {
     { title: 'Team', href: '/organizer/agency/team', iconName: 'Users2', section: 'Main Menu' },
     { title: 'Reports', href: '/organizer/agency/reports', iconName: 'BarChart3', section: 'Main Menu' },
     { title: 'Gate Management', href: '/organizer/agency/gate', iconName: 'ImHome3', section: 'Main Menu' },
-    { title: 'Billing', href: '/organizer/agency/pricing', iconName: 'CreditCard', section: 'General' },
+    { title: 'Billing', href: '/organizer/agency/billing', iconName: 'CreditCard', section: 'General' },
     { title: 'Settings', href: '/organizer/agency/settings', iconName: 'Settings', section: 'General' },
   ],
   organizer_venue: [

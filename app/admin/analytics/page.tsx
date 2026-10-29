@@ -5,6 +5,17 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown } from 'lucide-react';
 import {
+  getAllAnalytics,
+  getAnalyticsOverview,
+  getEventsCreatedSeries,
+  getOrganizerGrowth,
+  getVoiceRsvpAdoption,
+  type AnalyticsOverview,
+  type EventsCreatedPoint,
+  type OrganizerGrowthPoint,
+  type VoiceRsvpAdoption,
+} from '@/lib/api/admin-dashboard';
+import {
   ResponsiveContainer,
   LineChart,
   Line,
@@ -19,38 +30,104 @@ import {
   Tooltip,
 } from 'recharts';
 
-const GROWTH_DATA = [
-  { month: 'Jan', individual: 14, agency: 2, venue: 4 },
-  { month: 'Feb', individual: 23, agency: 5, venue: 12 },
-  { month: 'Mar', individual: 31, agency: 9, venue: 20 },
-  { month: 'Apr', individual: 36, agency: 15, venue: 26 },
-  { month: 'May', individual: 43, agency: 22, venue: 30 },
-  { month: 'Jun', individual: 48, agency: 26, venue: 38 },
-];
+const VOICE_COLORS = {
+  Button: '#2D5A43',
+  'Voice Note': '#5C2818',
+  'Text Reply': '#D4A373',
+};
 
-const EVENTS_CREATED_DATA = [
-  { month: 'Jan', count: 110 },
-  { month: 'Feb', count: 210 },
-  { month: 'Mar', count: 110 },
-  { month: 'Apr', count: 205 },
-  { month: 'May', count: 170 },
-  { month: 'Jun', count: 220 },
-];
+function formatCount(value: number) {
+  const count = Number(value) || 0;
+  if (Math.abs(count) >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  }
+  return count.toLocaleString('en-NG');
+}
 
-const VOICE_ADOPTION_DATA = [
-  { name: 'Button', value: 52, color: '#2D5A43' },
-  { name: 'Voice Note', value: 32, color: '#5C2818' },
-  { name: 'Text Reply', value: 16, color: '#D4A373' },
-];
+function rangeParam(value: string): '6_months' | '12_months' {
+  return value === '12m' ? '12_months' : '6_months';
+}
 
 export default function AdminAnalyticsPage() {
   const [timeRangeGrowth, setTimeRangeGrowth] = React.useState('6m');
   const [timeRangeEvents, setTimeRangeEvents] = React.useState('6m');
+  const [overview, setOverview] = React.useState<AnalyticsOverview | null>(null);
+  const [growth, setGrowth] = React.useState<OrganizerGrowthPoint[]>([]);
+  const [events, setEvents] = React.useState<EventsCreatedPoint[]>([]);
+  const [voice, setVoice] = React.useState<VoiceRsvpAdoption | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+
+  const monthLabel = overview?.periodLabel || new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  React.useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+
+    const growthRange = rangeParam(timeRangeGrowth);
+    const eventsRange = rangeParam(timeRangeEvents);
+
+    const request =
+      growthRange === eventsRange
+        ? getAllAnalytics(growthRange).then((data) => ({
+            overview: data.overview,
+            voice: data.voiceRsvpAdoption,
+            growth: data.organizerGrowth?.data || [],
+            events: data.eventsCreated?.data || [],
+          }))
+        : Promise.all([
+            getAnalyticsOverview(),
+            getVoiceRsvpAdoption(),
+            getOrganizerGrowth(growthRange),
+            getEventsCreatedSeries(eventsRange),
+          ]).then(([overviewData, voiceData, growthData, eventsData]) => ({
+            overview: overviewData,
+            voice: voiceData,
+            growth: growthData?.data || [],
+            events: eventsData?.data || [],
+          }));
+
+    request
+      .then((data) => {
+        if (!active) return;
+        setOverview(data.overview);
+        setVoice(data.voice);
+        setGrowth(data.growth);
+        setEvents(data.events);
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : 'Analytics could not be loaded');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [timeRangeGrowth, timeRangeEvents]);
+
+  const voiceSlices = voice
+    ? [
+        { name: 'Button', value: voice.breakdown.button.percentage, color: VOICE_COLORS.Button },
+        { name: 'Voice Note', value: voice.breakdown.voiceNote.percentage, color: VOICE_COLORS['Voice Note'] },
+        { name: 'Text Reply', value: voice.breakdown.textReply.percentage, color: VOICE_COLORS['Text Reply'] },
+      ].filter((slice) => slice.value > 0)
+    : [];
+
+  const cards = [
+    { value: overview ? formatCount(overview.newOrganizers.count) : '—', label: 'New Organizers', hint: monthLabel },
+    { value: overview ? formatCount(overview.eventsCreated.count) : '—', label: 'Events Created', hint: monthLabel },
+    { value: overview ? formatCount(overview.rsvpsProcessed.count) : '—', label: 'RSVPs Processed', hint: monthLabel },
+    { value: overview ? formatCount(overview.whatsappMessagesSent.count) : '—', label: 'WhatsApp Messages Sent', hint: monthLabel },
+    { value: overview ? `${overview.voiceRsvpUsage.percentage}%` : '—', label: 'Voice RSVP Usage', hint: 'Of total responses' },
+    { value: overview ? formatCount(overview.checkInVolume.count) : '—', label: 'Check-in Volume', hint: 'Across all events' },
+  ];
 
   return (
     <AppShell currentRole="admin">
       <div className="space-y-6">
-        {/* Header matching Event Details Page-3.png */}
         <div className="space-y-1">
           <h1 className="text-2xl font-serif font-semibold tracking-tight text-foreground">
             Analytics
@@ -60,78 +137,31 @@ export default function AdminAnalyticsPage() {
           </p>
         </div>
 
-        {/* 6 Top Metric Cards (3 cols x 2 rows) */}
+        {loading && !overview && (
+          <p className="text-xs text-muted-foreground">Loading analytics from the platform…</p>
+        )}
+
+        {error && (
+          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            {error}
+          </p>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Card 1: New Organizers */}
-          <Card className="border-border/80 shadow-2xs">
-            <CardContent className="p-5 space-y-1">
-              <span className="text-3xl font-serif font-semibold text-[#6D3A1B] dark:text-[#D4A373] block">
-                7
-              </span>
-              <p className="text-xs font-semibold text-foreground pt-1">New Organizers</p>
-              <p className="text-[11px] text-muted-foreground">September 2026</p>
-            </CardContent>
-          </Card>
-
-          {/* Card 2: Events Created */}
-          <Card className="border-border/80 shadow-2xs">
-            <CardContent className="p-5 space-y-1">
-              <span className="text-3xl font-serif font-semibold text-[#6D3A1B] dark:text-[#D4A373] block">
-                58
-              </span>
-              <p className="text-xs font-semibold text-foreground pt-1">Events Created</p>
-              <p className="text-[11px] text-muted-foreground">September 2026</p>
-            </CardContent>
-          </Card>
-
-          {/* Card 3: RSVPs Processed */}
-          <Card className="border-border/80 shadow-2xs">
-            <CardContent className="p-5 space-y-1">
-              <span className="text-3xl font-serif font-semibold text-[#6D3A1B] dark:text-[#D4A373] block">
-                6,840
-              </span>
-              <p className="text-xs font-semibold text-foreground pt-1">RSVPs Processed</p>
-              <p className="text-[11px] text-muted-foreground">September 2026</p>
-            </CardContent>
-          </Card>
-
-          {/* Card 4: WhatsApp Messages Sent */}
-          <Card className="border-border/80 shadow-2xs">
-            <CardContent className="p-5 space-y-1">
-              <span className="text-3xl font-serif font-semibold text-[#6D3A1B] dark:text-[#D4A373] block">
-                31.4K
-              </span>
-              <p className="text-xs font-semibold text-foreground pt-1">WhatsApp Messages Sent</p>
-              <p className="text-[11px] text-muted-foreground">September 2026</p>
-            </CardContent>
-          </Card>
-
-          {/* Card 5: Voice RSVP Usage */}
-          <Card className="border-border/80 shadow-2xs">
-            <CardContent className="p-5 space-y-1">
-              <span className="text-3xl font-serif font-semibold text-[#6D3A1B] dark:text-[#D4A373] block">
-                47%
-              </span>
-              <p className="text-xs font-semibold text-foreground pt-1">Voice RSVP Usage</p>
-              <p className="text-[11px] text-muted-foreground">Of total responses</p>
-            </CardContent>
-          </Card>
-
-          {/* Card 6: Check-in Volume */}
-          <Card className="border-border/80 shadow-2xs">
-            <CardContent className="p-5 space-y-1">
-              <span className="text-3xl font-serif font-semibold text-[#6D3A1B] dark:text-[#D4A373] block">
-                3,210
-              </span>
-              <p className="text-xs font-semibold text-foreground pt-1">Check-in Volume</p>
-              <p className="text-[11px] text-muted-foreground">Across all events</p>
-            </CardContent>
-          </Card>
+          {cards.map((card) => (
+            <Card key={card.label} className="border-border/80 shadow-2xs">
+              <CardContent className="p-5 space-y-1">
+                <span className="text-3xl font-serif font-semibold text-[#6D3A1B] dark:text-[#D4A373] block">
+                  {card.value}
+                </span>
+                <p className="text-xs font-semibold text-foreground pt-1">{card.label}</p>
+                <p className="text-[11px] text-muted-foreground">{card.hint}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* Middle Row: Organizer Growth & Events Created Over Time */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Card Left: Organizer Growth */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -140,7 +170,7 @@ export default function AdminAnalyticsPage() {
                   <select
                     aria-label="Growth Time Range"
                     value={timeRangeGrowth}
-                    onChange={(e) => setTimeRangeGrowth(e.target.value)}
+                    onChange={(event) => setTimeRangeGrowth(event.target.value)}
                     className="appearance-none pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
                   >
                     <option value="6m">Last 6 month</option>
@@ -153,10 +183,10 @@ export default function AdminAnalyticsPage() {
             <CardContent className="pt-2">
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={GROWTH_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <LineChart data={growth} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border/50" />
                     <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} />
-                    <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 50]} />
+                    <YAxis tickLine={false} axisLine={false} fontSize={11} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'var(--card)',
@@ -165,13 +195,12 @@ export default function AdminAnalyticsPage() {
                         fontSize: '12px',
                       }}
                     />
-                    <Line type="monotone" dataKey="individual" stroke="#60A5FA" strokeWidth={2} dot={{ r: 4, fill: '#60A5FA' }} />
-                    <Line type="monotone" dataKey="agency" stroke="#F97316" strokeWidth={2} dot={{ r: 4, fill: '#F97316' }} />
-                    <Line type="monotone" dataKey="venue" stroke="#34D399" strokeWidth={2} dot={{ r: 4, fill: '#34D399' }} />
+                    <Line type="monotone" dataKey="individual" name="Individual" stroke="#60A5FA" strokeWidth={2} dot={{ r: 4, fill: '#60A5FA' }} />
+                    <Line type="monotone" dataKey="agency" name="Agency" stroke="#F97316" strokeWidth={2} dot={{ r: 4, fill: '#F97316' }} />
+                    <Line type="monotone" dataKey="venue" name="Venue" stroke="#34D399" strokeWidth={2} dot={{ r: 4, fill: '#34D399' }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-              {/* Chart Legend */}
               <div className="flex items-center justify-center gap-6 pt-3 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#60A5FA]" />
@@ -189,7 +218,6 @@ export default function AdminAnalyticsPage() {
             </CardContent>
           </Card>
 
-          {/* Card Right: Events Created Over Time */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -198,7 +226,7 @@ export default function AdminAnalyticsPage() {
                   <select
                     aria-label="Events Time Range"
                     value={timeRangeEvents}
-                    onChange={(e) => setTimeRangeEvents(e.target.value)}
+                    onChange={(event) => setTimeRangeEvents(event.target.value)}
                     className="appearance-none pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
                   >
                     <option value="6m">Last 6 month</option>
@@ -211,10 +239,10 @@ export default function AdminAnalyticsPage() {
             <CardContent className="pt-2">
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={EVENTS_CREATED_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={events} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border/50" />
                     <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} />
-                    <YAxis tickLine={false} axisLine={false} fontSize={11} domain={[0, 250]} />
+                    <YAxis tickLine={false} axisLine={false} fontSize={11} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'var(--card)',
@@ -223,70 +251,84 @@ export default function AdminAnalyticsPage() {
                         fontSize: '12px',
                       }}
                     />
-                    <Bar dataKey="count" fill="#4A2016" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="eventsCount" name="Events" fill="#4A2016" radius={[6, 6, 0, 0]} maxBarSize={36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="pt-3" />
             </CardContent>
           </Card>
         </div>
 
-        {/* Bottom Card: Voice RSVP Adoption */}
         <Card className="border-border/80 shadow-2xs">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">Voice RSVP Adoption</CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
             <div className="relative h-64 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={VOICE_ADOPTION_DATA}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={75}
-                    outerRadius={105}
-                    paddingAngle={2}
-                    dataKey="value"
-                    startAngle={90}
-                    endAngle={-270}
-                  >
-                    {VOICE_ADOPTION_DATA.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--card)',
-                      borderColor: 'var(--border)',
-                      borderRadius: '0.5rem',
-                      fontSize: '12px',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {voice && voice.totalResponses === 0 ? (
+                <p className="text-xs text-muted-foreground">No RSVP responses yet.</p>
+              ) : voiceSlices.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={voiceSlices}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={75}
+                      outerRadius={105}
+                      paddingAngle={2}
+                      dataKey="value"
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      {voiceSlices.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => [`${value}%`, 'Share']}
+                      contentStyle={{
+                        backgroundColor: 'var(--card)',
+                        borderColor: 'var(--border)',
+                        borderRadius: '0.5rem',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : null}
 
-              {/* Center Donut Label */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-serif font-bold text-foreground">32%</span>
-                <span className="text-xs text-muted-foreground font-sans">Voice Notes</span>
-              </div>
+              {voice && voice.totalResponses > 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-serif font-bold text-foreground">
+                    {voice.breakdown.voiceNote.percentage}%
+                  </span>
+                  <span className="text-xs text-muted-foreground font-sans">Voice Notes</span>
+                </div>
+              )}
             </div>
 
-            {/* Bottom Legend */}
-            <div className="flex items-center justify-center gap-6 pt-4 text-xs">
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-4 text-xs">
               <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: VOICE_COLORS.Button }} />
                 <span className="font-medium text-foreground">Button:</span>
-                <span className="font-semibold text-foreground">52%</span>
+                <span className="font-semibold text-foreground">
+                  {voice ? `${voice.breakdown.button.count} · ${voice.breakdown.button.percentage}%` : '—'}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: VOICE_COLORS['Voice Note'] }} />
                 <span className="font-medium text-foreground">Voice Note:</span>
-                <span className="font-semibold text-foreground">32%</span>
+                <span className="font-semibold text-foreground">
+                  {voice ? `${voice.breakdown.voiceNote.count} · ${voice.breakdown.voiceNote.percentage}%` : '—'}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: VOICE_COLORS['Text Reply'] }} />
                 <span className="font-medium text-foreground">Text Reply:</span>
-                <span className="font-semibold text-foreground">16%</span>
+                <span className="font-semibold text-foreground">
+                  {voice ? `${voice.breakdown.textReply.count} · ${voice.breakdown.textReply.percentage}%` : '—'}
+                </span>
               </div>
             </div>
           </CardContent>
