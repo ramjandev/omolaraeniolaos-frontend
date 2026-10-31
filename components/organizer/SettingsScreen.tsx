@@ -32,6 +32,7 @@ import {
 import { logout, setCredentials } from '@/store/Auth/authSlice';
 import { getApiErrorMessage } from '@/store/Auth/types/authTypes';
 import type { RootState } from '@/store/store';
+import { uploadMedia } from '@/lib/liveChat';
 
 const DEMO_AVATAR =
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80';
@@ -103,9 +104,7 @@ export function SettingsScreen({
     e.preventDefault();
     setProfileError('');
     const avatarUrlToSave =
-      avatarUrl.startsWith('data:') || (user?.avatarUrl && avatarUrl === user.avatarUrl)
-        ? avatarUrl
-        : undefined;
+      avatarUrl && avatarUrl !== DEMO_AVATAR && avatarUrl !== user?.avatarUrl ? avatarUrl : undefined;
     try {
       const response = await updateProfile({
         fullName: fullName.trim(),
@@ -138,22 +137,21 @@ export function SettingsScreen({
     }
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 800 * 1024) {
-      setProfileError('Profile picture must be under 800KB.');
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileError('Profile picture must be under 5MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setProfileError('');
-        setAvatarUrl(event.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const uploaded = await uploadMedia(file);
+      setProfileError('');
+      setAvatarUrl(uploaded.url);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'The profile picture could not be uploaded.');
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {

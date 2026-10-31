@@ -19,7 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { dispatchCoordinatedMessage, listEventCommunications, listGuestThread, submitGuestRsvp } from '@/lib/api/platform';
+import { dispatchCoordinatedMessage, listEventCommunications, submitGuestRsvp } from '@/lib/api/platform';
+import { listLiveThread, postLiveMessage, subscribeThread, uploadMedia, type LiveMessage } from '@/lib/liveChat';
+import { ChatMedia, EmojiPicker, useVoiceNote } from '@/components/chat/ChatBits';
 import { getEventGuests, getIndividualEventById, updateEventGuest } from '@/lib/api/individual-events';
 import { eventsPath, type OrganizerKind } from '@/lib/organizer';
 import { EventBreadcrumb } from '@/components/events/shared/EventBreadcrumb';
@@ -38,7 +40,27 @@ export interface CommGuest {
   lastActive: string;
   inviteSentDate: string;
   dietary: string;
-  chatHistory: { sender: 'system' | 'guest'; text: string; time: string }[];
+  chatHistory: {
+    id?: string;
+    sender: 'system' | 'guest';
+    text: string;
+    time: string;
+    mediaUrl?: string | null;
+    mediaKind?: string | null;
+    fileName?: string | null;
+  }[];
+}
+
+function toHistory(message: LiveMessage): CommGuest['chatHistory'][number] {
+  return {
+    id: message.id,
+    sender: message.direction === 'INBOUND' ? 'guest' : 'system',
+    text: message.body,
+    time: new Date(message.createdAt).toLocaleString(),
+    mediaUrl: message.mediaUrl,
+    mediaKind: message.mediaKind,
+    fileName: message.fileName,
+  };
 }
 
 
@@ -88,7 +110,14 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   const [chatInputText, setChatInputText] = React.useState('');
+  const [emojiOpen, setEmojiOpen] = React.useState(false);
+  const [chatBusy, setChatBusy] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedLanguage, setSelectedLanguage] = React.useState('English');
+  const sendFileRef = React.useRef<(file: File) => Promise<void>>(async () => undefined);
+  const voice = useVoiceNote((file) => {
+    void sendFileRef.current(file);
+  });
 
   const activeGuest = guests.find((g) => g.id === activeGuestId);
   const [manualStatus, setManualStatus] = React.useState<CommGuest['rsvpStatus']>('No Response');
@@ -170,32 +199,43 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
     void loadGuests();
   }, [loadGuests]);
 
+  const pushHistory = React.useCallback((message: LiveMessage) => {
+    setGuests((current) => current.map((guest) => {
+      if (guest.id !== message.attendeeId) return guest;
+      if (guest.chatHistory.some((item) => item.id === message.id)) return guest;
+      return {
+        ...guest,
+        chatHistory: [...guest.chatHistory, toHistory(message)],
+        lastActive: new Date(message.createdAt).toLocaleString(),
+      };
+    }));
+  }, []);
+
   React.useEffect(() => {
     if (viewMode !== 'chat' || !activeGuestId) return;
     let cancelled = false;
-    void listGuestThread(eventId, activeGuestId)
-      .then((messages) => {
+    void listLiveThread(eventId, activeGuestId)
+      .then((rows) => {
         if (cancelled) return;
         setGuests((current) => current.map((guest) => {
           if (guest.id !== activeGuestId) return guest;
-          const rows = Array.isArray(messages) ? messages : [];
           const latest = rows.at(-1);
           return {
             ...guest,
-            chatHistory: rows.map((message) => ({
-              sender: message.direction === 'INBOUND' ? 'guest' as const : 'system' as const,
-              text: message.body,
-              time: new Date(message.createdAt).toLocaleString(),
-            })),
+            chatHistory: rows.map(toHistory),
             lastActive: latest ? new Date(latest.createdAt).toLocaleString() : guest.lastActive,
           };
         }));
       })
       .catch(() => undefined);
+    const stop = subscribeThread(eventId, activeGuestId, (message) => {
+      if (!cancelled) pushHistory(message);
+    });
     return () => {
       cancelled = true;
+      stop();
     };
-  }, [activeGuestId, eventId, viewMode]);
+  }, [activeGuestId, eventId, pushHistory, viewMode]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -246,28 +286,35 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
     }
   };
 
+  const sendLive = async (input: { body?: string; file?: File }) => {
+    if (!activeGuest || chatBusy) return;
+    setChatBusy(true);
+    setEmojiOpen(false);
+    try {
+      const media = input.file ? await uploadMedia(input.file) : null;
+      const saved = await postLiveMessage({
+        eventId,
+        attendeeId: activeGuest.id,
+        from: 'organizer',
+        body: input.body,
+        mediaUrl: media?.url,
+        mediaKind: media?.mediaKind,
+        fileName: media?.fileName,
+      });
+      pushHistory(saved);
+      if (input.body) setChatInputText('');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'The message could not be sent.');
+    } finally {
+      setChatBusy(false);
+    }
+  };
+  sendFileRef.current = (file) => sendLive({ file });
+
   const handleSendChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeGuest || !chatInputText.trim()) return;
-
-    const newMsg = {
-      sender: 'system' as const,
-      text: chatInputText.trim(),
-      time: 'Just now',
-    };
-
-    setGuests((current) => current.map((item) => item.id === activeGuest.id
-      ? { ...item, chatHistory: [...item.chatHistory, newMsg] }
-      : item));
-    setChatInputText('');
-    void dispatchCoordinatedMessage({
-      eventId,
-      attendeeIds: [activeGuest.id],
-      channels: ['WHATSAPP', 'EMAIL'],
-      subject: 'Message from your host',
-      content: newMsg.text,
-    }).then((result) => showToast(deliveryNotice(result.deliveries, 'Message sent.')))
-      .catch(() => showToast('The message could not be sent.'));
+    if (!chatInputText.trim()) return;
+    void sendLive({ body: chatInputText.trim() });
   };
 
   const handleInteractiveRsvp = (status: CommGuest['rsvpStatus']) => {
@@ -870,7 +917,10 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                           : 'bg-white dark:bg-[#1E1610] text-foreground rounded-tl-none border border-[#E8DACB]'
                       }`}
                     >
-                      <p>{item.text}</p>
+                      {item.mediaUrl && (
+                        <ChatMedia url={item.mediaUrl} kind={item.mediaKind} name={item.fileName} />
+                      )}
+                      {item.text && <p>{item.text}</p>}
                       <p className="text-[9px] text-muted-foreground text-right mt-1 font-mono">
                         {item.time}
                       </p>
@@ -894,11 +944,13 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                   </Button>
                 </div>
 
-                <form onSubmit={handleSendChatMessage} className="flex items-center gap-2">
+                <form onSubmit={handleSendChatMessage} className="relative flex items-center gap-2">
+                  {emojiOpen && <EmojiPicker onPick={(emoji) => setChatInputText((value) => `${value}${emoji}`)} />}
                   <button
                     type="button"
                     className="p-2 text-muted-foreground hover:text-foreground"
                     title="Insert emoji"
+                    onClick={() => setEmojiOpen((open) => !open)}
                   >
                     <Smile className="w-5 h-5" />
                   </button>
@@ -906,9 +958,21 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                     type="button"
                     className="p-2 text-muted-foreground hover:text-foreground"
                     title="Attach file or photo"
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <Paperclip className="w-5 h-5" />
                   </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*,audio/*,.pdf"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (file) void sendLive({ file });
+                    }}
+                  />
 
                   <Input
                     value={chatInputText}
@@ -928,12 +992,18 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                   {/* Mic Voice Button */}
                   <button
                     type="button"
-                    onClick={() => showToast('Voice note recorded and queued for guest!')}
-                    className="w-10 h-10 rounded-full bg-[#1F4D36] hover:bg-[#173D2B] text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer"
+                    onClick={() => void voice.toggle()}
+                    className={`w-10 h-10 rounded-full text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer ${voice.recording ? 'bg-red-700' : 'bg-[#1F4D36] hover:bg-[#173D2B]'}`}
+                    title={voice.recording ? 'Stop and send voice note' : 'Record a voice note'}
                   >
                     <Mic className="w-4 h-4" />
                   </button>
                 </form>
+                {(voice.recording || voice.error || chatBusy) && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {voice.recording ? 'Recording… tap the microphone again to send.' : voice.error || (chatBusy ? 'Sending…' : '')}
+                  </p>
+                )}
               </div>
             </div>
 

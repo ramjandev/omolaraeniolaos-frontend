@@ -4,6 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getGuestPass, submitGuestRsvp, submitVoiceRsvp, type GuestPass } from '@/lib/api/platform';
+import { listLiveThread, postLiveMessage, subscribeThread, uploadMedia, type LiveMessage } from '@/lib/liveChat';
+import { ChatMedia, EmojiPicker, useVoiceNote } from '@/components/chat/ChatBits';
 import {
   ArrowLeft,
   MoreVertical,
@@ -102,13 +104,22 @@ export default function GuestConversationalRsvpPage() {
   // Chat message input state
   const [inputMessage, setInputMessage] = React.useState<string>('');
   const [customMessages, setCustomMessages] = React.useState<Array<{ sender: 'user' | 'assistant'; text: string; time: string }>>([]);
+  const [liveMessages, setLiveMessages] = React.useState<LiveMessage[]>([]);
+  const [emojiOpen, setEmojiOpen] = React.useState(false);
+  const [chatBusy, setChatBusy] = React.useState(false);
+  const [chatError, setChatError] = React.useState('');
+  const chatFileRef = React.useRef<HTMLInputElement>(null);
+  const sendFileRef = React.useRef<(file: File) => Promise<void>>(async () => undefined);
+  const voiceNote = useVoiceNote((file) => {
+    void sendFileRef.current(file);
+  });
 
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   // Auto-scroll when new messages appear
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [rsvpStatus, guestCountSubmitted, profileSubmitted, customMessages, hasVoiceResponse]);
+  }, [rsvpStatus, guestCountSubmitted, profileSubmitted, customMessages, liveMessages, hasVoiceResponse]);
 
   // Timer for recording simulation
   React.useEffect(() => {
@@ -335,35 +346,61 @@ export default function GuestConversationalRsvpPage() {
     });
   };
 
+  const rememberLive = React.useCallback((message: LiveMessage) => {
+    setLiveMessages((current) => (current.some((item) => item.id === message.id) ? current : [...current, message]));
+  }, []);
+
+  React.useEffect(() => {
+    if (!invite?.attendeeId || !invite.eventId) return;
+    let cancelled = false;
+    void listLiveThread(invite.eventId, invite.attendeeId)
+      .then((rows) => {
+        if (!cancelled) setLiveMessages(rows);
+      })
+      .catch(() => undefined);
+    const stop = subscribeThread(invite.eventId, invite.attendeeId, (message) => {
+      if (!cancelled) rememberLive(message);
+    });
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, [invite?.attendeeId, invite?.eventId, rememberLive]);
+
+  const sendGuestChat = async (input: { body?: string; file?: File }) => {
+    if (!invite?.attendeeId || !invite.eventId) {
+      setChatError('Open your invitation link to chat with the host.');
+      return;
+    }
+    if (chatBusy) return;
+    setChatBusy(true);
+    setChatError('');
+    setEmojiOpen(false);
+    try {
+      const media = input.file ? await uploadMedia(input.file) : null;
+      const saved = await postLiveMessage({
+        eventId: invite.eventId,
+        attendeeId: invite.attendeeId,
+        from: 'guest',
+        body: input.body,
+        mediaUrl: media?.url,
+        mediaKind: media?.mediaKind,
+        fileName: media?.fileName,
+      });
+      rememberLive(saved);
+      if (input.body) setInputMessage('');
+    } catch (err) {
+      setChatError(err instanceof Error ? err.message : 'The message could not be sent.');
+    } finally {
+      setChatBusy(false);
+    }
+  };
+  sendFileRef.current = (file) => sendGuestChat({ file });
+
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
-
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const userText = inputMessage.trim();
-    setInputMessage('');
-
-    setCustomMessages((prev) => [
-      ...prev,
-      { sender: 'user', text: userText, time },
-    ]);
-    if (rsvpStatus !== 'pending') {
-      void persistRsvp(rsvpStatus === 'declined' ? 'declined' : rsvpStatus === 'tentative' ? 'tentative' : 'accepted', {
-        notes: `Protocol: ${protocol}. Guest note: ${userText}`,
-      });
-    }
-
-    // Simulated intelligent assistant response
-    setTimeout(() => {
-      setCustomMessages((prev) => [
-        ...prev,
-        {
-          sender: 'assistant',
-          text: `Thank you ${firstName(invite?.fullName || 'Guest')}. Your note has been saved: "${userText}".`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
-    }, 1000);
+    void sendGuestChat({ body: inputMessage.trim() });
   };
 
   return (
@@ -948,18 +985,35 @@ export default function GuestConversationalRsvpPage() {
             </div>
           ))}
 
+          {liveMessages.map((message) => {
+            const mine = message.direction === 'INBOUND';
+            return (
+              <div key={message.id} className={`flex flex-col w-full ${mine ? 'items-end' : 'items-start max-w-[94%]'}`}>
+                <div className={`rounded-2xl p-3 shadow-xs text-xs max-w-[85%] ${mine ? 'bg-[#D9FDD3] rounded-tr-xs border border-[#C2EDB9]' : 'bg-white rounded-tl-xs border border-[#E1DDD5]'}`}>
+                  {message.mediaUrl && <ChatMedia url={message.mediaUrl} kind={message.mediaKind} name={message.fileName} />}
+                  {message.body && <p className="leading-relaxed">{message.body}</p>}
+                  <div className="mt-1 text-right text-[10px] text-[#70665F]">
+                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
           <div ref={messagesEndRef} />
         </div>
 
         {/* WhatsApp Footer Input Bar */}
         <form
           onSubmit={handleSendTextMessage}
-          className="bg-[#F0F2F5] px-2.5 py-2 flex items-center gap-1.5 border-t border-[#E1DDD5] z-30 shrink-0"
+          className="relative bg-[#F0F2F5] px-2.5 py-2 flex items-center gap-1.5 border-t border-[#E1DDD5] z-30 shrink-0"
         >
+          {emojiOpen && <EmojiPicker onPick={(emoji) => setInputMessage((value) => `${value}${emoji}`)} />}
           <button
             type="button"
             className="p-1.5 text-[#54656F] hover:bg-black/5 rounded-full transition-colors"
             aria-label="Emoji"
+            onClick={() => setEmojiOpen((open) => !open)}
           >
             <Smile className="w-5 h-5" />
           </button>
@@ -968,9 +1022,21 @@ export default function GuestConversationalRsvpPage() {
             type="button"
             className="p-1.5 text-[#54656F] hover:bg-black/5 rounded-full transition-colors"
             aria-label="Attachment"
+            onClick={() => chatFileRef.current?.click()}
           >
             <Paperclip className="w-5 h-5 rotate-45" />
           </button>
+          <input
+            ref={chatFileRef}
+            type="file"
+            accept="image/*,video/*,audio/*,.pdf"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) void sendGuestChat({ file });
+            }}
+          />
 
           <input
             type="text"
@@ -991,14 +1057,19 @@ export default function GuestConversationalRsvpPage() {
           ) : (
             <button
               type="button"
-              onClick={() => setShowVoiceModal(true)}
-              className="w-9 h-9 rounded-full bg-[#075E54] hover:bg-[#064e46] text-white flex items-center justify-center shrink-0 shadow-xs transition-transform active:scale-95"
+              onClick={() => void voiceNote.toggle()}
+              className={`w-9 h-9 rounded-full text-white flex items-center justify-center shrink-0 shadow-xs transition-transform active:scale-95 ${voiceNote.recording ? 'bg-red-700' : 'bg-[#075E54] hover:bg-[#064e46]'}`}
               aria-label="Voice note"
             >
               <Mic className="w-4 h-4" />
             </button>
           )}
         </form>
+        {(chatError || voiceNote.error || voiceNote.recording || chatBusy) && (
+          <p className="bg-[#F0F2F5] px-3 pb-2 text-[11px] text-[#70665F]">
+            {voiceNote.recording ? 'Recording… tap the microphone again to send.' : chatError || voiceNote.error || (chatBusy ? 'Sending…' : '')}
+          </p>
+        )}
 
         {/* VOICE RSVP MODAL (Replicating Guest Conversation Screen-4.png / Screen-6.png) */}
         {showVoiceModal && (
