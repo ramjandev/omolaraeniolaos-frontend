@@ -1,7 +1,9 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import { toast } from 'react-toastify';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -142,14 +144,12 @@ export default function AdminPlatformUsersPage() {
   return (
     <AppShell currentRole="admin">
       <div className="space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-serif font-semibold tracking-tight text-foreground">
-            Platform Users
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Super Admin accounts with platform-wide access
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Platform Users"
+          subtitle="Super Admin accounts with platform-wide access"
+        />
 
         <InviteUserModal
           open={isInviteOpen}
@@ -201,16 +201,14 @@ export default function AdminPlatformUsersPage() {
               </div>
 
               <div className="relative">
-                <select
+                <CommonSelect
                   aria-label="Filter Status"
                   value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                  className="appearance-none pl-3 pr-8 py-1.5 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-                >
-                  <option value="all">Status</option>
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
-                </select>
+                  item={[{ label: "Status", value: "all" }, { label: "Active", value: "active" }, { label: "Suspended", value: "suspended" }]}
+                  w="100%"
+                  onValueChange={(value) => { setStatusFilter(value); }}
+                  className="pl-3 pr-8 py-1.5 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                />
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
               </div>
             </div>

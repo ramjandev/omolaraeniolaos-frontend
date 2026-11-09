@@ -1,8 +1,10 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import Link from 'next/link';
 import { Plus, Search, Eye, Edit2, Armchair, MapPin, ImagePlus } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,14 +104,12 @@ export default function VenueSpacesPage() {
     <AppShell currentRole="organizer_venue">
       <div className="space-y-7 w-full pb-12">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1F140E] tracking-tight">
-              Venues & Spaces
-            </h1>
-            <p className="text-xs sm:text-sm text-[#71717A] mt-1 font-sans">
-              Manage your venues, spaces, availability, and seating.
-            </p>
-          </div>
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title="Venues & Spaces"
+            subtitle="Manage your venues, spaces, availability, and seating."
+          />
           <button
             type="button"
             onClick={openCreate}
@@ -142,17 +142,13 @@ export default function VenueSpacesPage() {
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-[#E5E0D8] bg-white focus:outline-none focus:ring-1 focus:ring-[#6E3B1C] text-[#1F140E] placeholder:text-[#8C7A6B]"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="px-3.5 py-2 text-xs rounded-xl border border-[#E5E0D8] bg-white text-[#1F140E]"
-          >
-            <option value="All">Status: All</option>
-            <option value="Available">Available</option>
-            <option value="Occupied">Occupied</option>
-            <option value="Maintenance">Maintenance</option>
-            <option value="Closed">Closed</option>
-          </select>
+          <CommonSelect
+                  value={statusFilter}
+                  item={[{ label: "Status: All", value: "All" }, { label: "Available", value: "Available" }, { label: "Occupied", value: "Occupied" }, { label: "Maintenance", value: "Maintenance" }, { label: "Closed", value: "Closed" }]}
+                  w="100%"
+                  onValueChange={(value) => { setStatusFilter(value); }}
+                  className="px-3.5 py-2 text-xs rounded-xl border border-[#E5E0D8] bg-white text-[#1F140E]"
+                />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -356,9 +352,13 @@ function SpaceFormDialog({
               <Input required value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Crystal Hall" className="rounded-xl" />
             </Field>
             <Field label="Venue Type *">
-              <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm">
-                {SPACE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              <CommonSelect
+                value={type}
+                item={SPACE_TYPES.map((option) => ({ label: option.label, value: option.value }))}
+                w="100%"
+                onValueChange={setType}
+                className="h-10 w-full rounded-xl border-input bg-background text-sm"
+              />
             </Field>
           </div>
           <Field label="Location / Address *">
@@ -378,9 +378,13 @@ function SpaceFormDialog({
               <Input required type="number" min={1} value={capacity} onChange={(event) => setCapacity(event.target.value)} className="rounded-xl" />
             </Field>
             <Field label="Status">
-              <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm">
-                {STATUSES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              <CommonSelect
+                value={status}
+                item={STATUSES.map((option) => ({ label: option.label, value: option.value }))}
+                w="100%"
+                onValueChange={setStatus}
+                className="h-10 w-full rounded-xl border-input bg-background text-sm"
+              />
             </Field>
           </div>
           <Field label="Cover Image (optional)">

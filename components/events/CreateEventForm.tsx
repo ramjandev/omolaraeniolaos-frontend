@@ -1,12 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { brownButton, fieldClass, labelClass } from '@/components/auth/onboarding-ui';
+import { inputClass } from '@/components/auth/onboarding';
+import CommonButton from '@/components/common/CommonButton';
+import CommonSelect from '@/components/common/CommonSelect';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { eventsPath, type OrganizerKind } from '@/lib/organizer';
 import { useCreateEventMutation } from '@/store/Event/eventAPI';
 
@@ -46,6 +48,8 @@ export function CreateEventForm({ organizer }: { organizer: OrganizerKind }) {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateEventInput, unknown, CreateEventValues>({
     resolver: zodResolver(createEventSchema),
@@ -72,7 +76,6 @@ export function CreateEventForm({ organizer }: { organizer: OrganizerKind }) {
       }).unwrap();
       router.push(eventsPath(organizer, result.data?.id));
     } catch {
-      // baseAPI surfaces the server error as a toast
     }
   });
 
@@ -81,14 +84,12 @@ export function CreateEventForm({ organizer }: { organizer: OrganizerKind }) {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5">
-      <div className="space-y-1">
-        <h1 className="font-serif text-4xl font-normal tracking-tight text-[#1F140E] dark:text-[#FBF8F5]">
-          Create Event
-        </h1>
-        <p className="text-sm text-[#736B66] dark:text-muted-foreground">
-          Set up the essentials now—you can add guests and experiences later.
-        </p>
-      </div>
+      <CommonHeader
+        variant="section"
+        as="h1"
+        title="Create Event"
+        subtitle="Set up the essentials now—you can add guests and experiences later."
+      />
 
       <form
         onSubmit={submit}
@@ -98,68 +99,69 @@ export function CreateEventForm({ organizer }: { organizer: OrganizerKind }) {
         <h2 className="font-sans text-lg font-medium text-[#261710] dark:text-foreground">Event details</h2>
 
         <div>
-          <label htmlFor="event-title" className={labelClass}>
+          <label htmlFor="event-title" className={inputClass.label}>
             Event name*
           </label>
-          <input id="event-title" className={fieldClass} placeholder="Enter event name" {...register('title')} />
+          <input id="event-title" className={inputClass.input} placeholder="Enter event name" {...register('title')} />
           {errorText(errors.title?.message)}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="event-type" className={labelClass}>
+            <label htmlFor="event-type" className={inputClass.label}>
               Event type
             </label>
-            <select id="event-type" className={fieldClass} {...register('category')}>
-              {EVENT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+            <CommonSelect
+              id="event-type"
+              value={watch('category')}
+              item={EVENT_TYPES.map((type) => ({ label: type, value: type }))}
+              w="100%"
+              onValueChange={(value) => setValue('category', value, { shouldValidate: true })}
+              className={inputClass.select}
+            />
           </div>
           <div>
-            <label htmlFor="event-capacity" className={labelClass}>
+            <label htmlFor="event-capacity" className={inputClass.label}>
               Expected guests*
             </label>
-            <input id="event-capacity" type="number" min={1} className={fieldClass} {...register('capacity')} />
+            <input id="event-capacity" type="number" min={1} className={inputClass.input} {...register('capacity')} />
             {errorText(errors.capacity?.message)}
           </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="event-date" className={labelClass}>
+            <label htmlFor="event-date" className={inputClass.label}>
               Event date*
             </label>
-            <input id="event-date" type="date" min={todayIso()} className={fieldClass} {...register('date')} />
+            <input id="event-date" type="date" min={todayIso()} className={inputClass.date} {...register('date')} />
             {errorText(errors.date?.message)}
           </div>
           <div>
-            <label htmlFor="event-time" className={labelClass}>
+            <label htmlFor="event-time" className={inputClass.label}>
               Start time*
             </label>
-            <input id="event-time" type="time" className={fieldClass} {...register('startTime')} />
+            <input id="event-time" type="time" className={inputClass.time} {...register('startTime')} />
             {errorText(errors.startTime?.message)}
           </div>
         </div>
 
         <div>
-          <label htmlFor="event-venue" className={labelClass}>
+          <label htmlFor="event-venue" className={inputClass.label}>
             Venue or location*
           </label>
-          <input id="event-venue" className={fieldClass} placeholder="Enter venue or location" {...register('venueName')} />
+          <input id="event-venue" className={inputClass.input} placeholder="Enter venue or location" {...register('venueName')} />
           {errorText(errors.venueName?.message)}
         </div>
 
         <div>
-          <label htmlFor="event-notes" className={labelClass}>
+          <label htmlFor="event-notes" className={inputClass.label}>
             Event notes (optional)
           </label>
           <textarea
             id="event-notes"
             rows={3}
-            className={`${fieldClass} h-auto py-3`}
+            className={inputClass.textarea}
             placeholder="Add a short planning note"
             {...register('description')}
           />
@@ -167,15 +169,18 @@ export function CreateEventForm({ organizer }: { organizer: OrganizerKind }) {
         </div>
 
         <div className="flex flex-col-reverse gap-3 border-t border-[#EFEAE4] pt-4 sm:flex-row sm:justify-between dark:border-border">
-          <Link
-            href={eventsPath(organizer)}
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-[#231713] px-8 text-sm font-medium text-[#231713] hover:bg-[#FAF8F4] dark:border-border dark:text-foreground"
-          >
+          <CommonButton to={eventsPath(organizer)} variant="outline" size="md">
             Cancel
-          </Link>
-          <button type="submit" disabled={isLoading} className={`${brownButton} h-11 px-8 text-sm disabled:opacity-60`}>
-            {isLoading ? 'Creating…' : 'Create Event'}
-          </button>
+          </CommonButton>
+          <CommonButton
+            type="submit"
+            size="md"
+            disabled={isLoading}
+            isLoading={isLoading}
+            loadingText="Creating…"
+          >
+            Create Event
+          </CommonButton>
         </div>
       </form>
     </div>

@@ -46,6 +46,15 @@ export const authAPI = baseAPI.injectEndpoints({
       invalidatesTags: ["Me", "Auth"],
     }),
 
+    updateAvatar: build.mutation<ApiResponse<User>, { avatarUrl: string }>({
+      query: (body) => ({
+        url: "/auth/me/avatar",
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Me", "Auth"],
+    }),
+
     registerIndividual: build.mutation<
       ApiResponse<LoginResponse>,
       RegisterIndividualPayload
@@ -199,6 +208,7 @@ export const {
   useLoginUserMutation,
   useGetMeQuery,
   useUpdateProfileMutation,
+  useUpdateAvatarMutation,
   useRegisterIndividualMutation,
   useRegisterAgencyMutation,
   useRegisterVenueMutation,

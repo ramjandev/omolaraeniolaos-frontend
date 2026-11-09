@@ -7,7 +7,9 @@ import { z } from 'zod';
 import { isExcelShortNumber, isWhatsAppPhone, normalizeWhatsAppPhone } from '@/lib/phone';
 import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { brownButton, fieldClass, labelClass } from '@/components/auth/onboarding-ui';
+import { inputClass } from '@/components/auth/onboarding';
+import CommonButton from '@/components/common/CommonButton';
+import CommonSelect from '@/components/common/CommonSelect';
 import type { AddGuestPayload, EventGuest } from '@/store/Event/types/eventTypes';
 import { GUEST_TYPES, INVITE_CHANNELS } from './shared/guest-options';
 
@@ -43,7 +45,6 @@ interface GuestFormModalProps {
   onOpenChange: (open: boolean) => void;
   guest?: EventGuest | null;
   busy?: boolean;
-  /** Live events send the invitation as soon as the guest is saved. */
   sendOnAdd?: boolean;
   onSubmit: (payload: AddGuestPayload) => Promise<void>;
 }
@@ -61,6 +62,8 @@ export function GuestFormModal({
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<GuestFormInput, unknown, GuestFormValues>({
     resolver: zodResolver(guestSchema),
@@ -114,60 +117,75 @@ export function GuestFormModal({
 
         <form onSubmit={submit} className="mt-2 space-y-4" noValidate>
           <div>
-            <label htmlFor="guest-name" className={labelClass}>
+            <label htmlFor="guest-name" className={inputClass.label}>
               Full Name*
             </label>
-            <input id="guest-name" className={fieldClass} placeholder="e.g. Chief & Mrs. Babatunde Alabi" {...register('name')} />
+            <input id="guest-name" className={inputClass.input} placeholder="e.g. Chief & Mrs. Babatunde Alabi" {...register('name')} />
             {errorText(errors.name?.message)}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="guest-phone" className={labelClass}>
+              <label htmlFor="guest-phone" className={inputClass.label}>
                 Phone Number*
               </label>
-              <input id="guest-phone" type="tel" className={fieldClass} placeholder="+234 802 345 6789" {...register('phone')} />
+              <input id="guest-phone" type="tel" className={inputClass.input} placeholder="+234 802 345 6789" {...register('phone')} />
               {errorText(errors.phone?.message)}
             </div>
             <div>
-              <label htmlFor="guest-email" className={labelClass}>
+              <label htmlFor="guest-email" className={inputClass.label}>
                 Email Address
               </label>
-              <input id="guest-email" type="email" className={fieldClass} placeholder="guest@email.com" {...register('email')} />
+              <input id="guest-email" type="email" className={inputClass.input} placeholder="guest@email.com" {...register('email')} />
               {errorText(errors.email?.message)}
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="guest-type" className={labelClass}>
+              <label htmlFor="guest-type" className={inputClass.label}>
                 Guest Type
               </label>
-              <select id="guest-type" className={fieldClass} {...register('type')}>
-                {GUEST_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+              <CommonSelect
+                id="guest-type"
+                value={watch('type')}
+                item={GUEST_TYPES.map((type) => ({ label: type, value: type }))}
+                w="100%"
+                onValueChange={(value) =>
+                  setValue('type', value as GuestFormValues['type'], { shouldValidate: true })
+                }
+                className={inputClass.input}
+              />
             </div>
             <div>
-              <label htmlFor="guest-channel" className={labelClass}>
+              <label htmlFor="guest-channel" className={inputClass.label}>
                 Invite Through
               </label>
-              <select id="guest-channel" className={fieldClass} {...register('inviteThrough')}>
-                {INVITE_CHANNELS.map((channel) => (
-                  <option key={channel} value={channel}>
-                    {channel}
-                  </option>
-                ))}
-              </select>
+              <CommonSelect
+                id="guest-channel"
+                value={watch('inviteThrough')}
+                item={INVITE_CHANNELS.map((channel) => ({ label: channel, value: channel }))}
+                w="100%"
+                onValueChange={(value) =>
+                  setValue('inviteThrough', value as GuestFormValues['inviteThrough'], {
+                    shouldValidate: true,
+                  })
+                }
+                className={inputClass.input}
+              />
             </div>
           </div>
 
-          <button type="submit" disabled={busy} className={`${brownButton} h-12 w-full text-base disabled:opacity-60`}>
-            {busy ? 'Saving…' : isEdit ? 'Save Changes' : sendOnAdd ? 'Add & send invitation' : 'Add Guest'}
-          </button>
+          <CommonButton
+            type="submit"
+            size="lg"
+            fullWidth
+            disabled={busy}
+            isLoading={busy}
+            loadingText="Saving…"
+          >
+            {isEdit ? 'Save Changes' : sendOnAdd ? 'Add & send invitation' : 'Add Guest'}
+          </CommonButton>
         </form>
       </DialogContent>
     </Dialog>

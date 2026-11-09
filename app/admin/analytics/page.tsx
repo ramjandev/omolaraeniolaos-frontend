@@ -1,6 +1,8 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown } from 'lucide-react';
@@ -128,14 +130,12 @@ export default function AdminAnalyticsPage() {
   return (
     <AppShell currentRole="admin">
       <div className="space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-serif font-semibold tracking-tight text-foreground">
-            Analytics
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Platform-wide usage and growth
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Analytics"
+          subtitle="Platform-wide usage and growth"
+        />
 
         {loading && !overview && (
           <p className="text-xs text-muted-foreground">Loading analytics from the platform…</p>
@@ -167,15 +167,14 @@ export default function AdminAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Organizer Growth</CardTitle>
                 <div className="relative">
-                  <select
-                    aria-label="Growth Time Range"
-                    value={timeRangeGrowth}
-                    onChange={(event) => setTimeRangeGrowth(event.target.value)}
-                    className="appearance-none pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-                  >
-                    <option value="6m">Last 6 month</option>
-                    <option value="12m">Last 12 month</option>
-                  </select>
+                  <CommonSelect
+                  aria-label="Growth Time Range"
+                  value={timeRangeGrowth}
+                  item={[{ label: "Last 6 month", value: "6m" }, { label: "Last 12 month", value: "12m" }]}
+                  w="100%"
+                  onValueChange={(value) => { setTimeRangeGrowth(value); }}
+                  className="pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                />
                   <ChevronDown className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
                 </div>
               </div>
@@ -223,15 +222,14 @@ export default function AdminAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Events Created Over Time</CardTitle>
                 <div className="relative">
-                  <select
-                    aria-label="Events Time Range"
-                    value={timeRangeEvents}
-                    onChange={(event) => setTimeRangeEvents(event.target.value)}
-                    className="appearance-none pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-                  >
-                    <option value="6m">Last 6 month</option>
-                    <option value="12m">Last 12 month</option>
-                  </select>
+                  <CommonSelect
+                  aria-label="Events Time Range"
+                  value={timeRangeEvents}
+                  item={[{ label: "Last 6 month", value: "6m" }, { label: "Last 12 month", value: "12m" }]}
+                  w="100%"
+                  onValueChange={(value) => { setTimeRangeEvents(value); }}
+                  className="pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                />
                   <ChevronDown className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
                 </div>
               </div>

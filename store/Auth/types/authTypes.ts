@@ -75,12 +75,13 @@ export interface RegisterAccountFields {
 }
 
 export interface RegisterIndividualPayload extends RegisterAccountFields {
-  eventName: string;
-  eventType: string;
-  eventDate: string;
-  startTime: string;
+  skipEvent?: boolean;
+  eventName?: string;
+  eventType?: string;
+  eventDate?: string;
+  startTime?: string;
   endTime?: string;
-  venueLocation: string;
+  venueLocation?: string;
   expectedGuests?: number;
   planId?: string;
   skipPayment?: boolean;

@@ -1,9 +1,11 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import Link from 'next/link';
 import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,13 +93,10 @@ export default function AgencyClientsPage() {
   return (
     <AppShell currentRole="organizer_agency">
       <div className="space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-4xl font-medium text-[#1F140E]">Clients</h1>
-            <p className="mt-1 text-sm text-[#736B66]">
-              Manage client relationships and keep every event connected.
-            </p>
-          </div>
+        <PageHeader
+          title="Clients"
+          description="Manage client relationships and keep every event connected."
+        >
           <Button
             asChild
             className="h-10 rounded-xl bg-[#241710] px-4 text-xs font-semibold text-white hover:bg-[#38261C]"
@@ -107,7 +106,7 @@ export default function AgencyClientsPage() {
               Add Client
             </Link>
           </Button>
-        </div>
+        </PageHeader>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Metric value={metrics.total} label="Total Clients" />
@@ -126,24 +125,20 @@ export default function AgencyClientsPage() {
                 className="h-10 rounded-xl border-[#EBE3D9] pl-9 text-sm"
               />
             </div>
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value as StatusFilter)}
-              className="h-10 rounded-xl border border-[#EBE3D9] bg-white px-3 text-sm text-[#3F342C]"
-            >
-              <option value="all">Status</option>
-              <option value="active">Active</option>
-              <option value="archived">Archive</option>
-            </select>
-            <select
-              value={sort}
-              onChange={(event) => setSort(event.target.value as SortKey)}
-              className="h-10 rounded-xl border border-[#EBE3D9] bg-white px-3 text-sm text-[#3F342C]"
-            >
-              <option value="newest">Sort: Newest</option>
-              <option value="oldest">Sort: Oldest</option>
-              <option value="events">Sort: Most events</option>
-            </select>
+            <CommonSelect
+                  value={status}
+                  item={[{ label: "Status", value: "all" }, { label: "Active", value: "active" }, { label: "Archive", value: "archived" }]}
+                  w="100%"
+                  onValueChange={(value) => { setStatus(value as StatusFilter); }}
+                  className="h-10 rounded-xl border border-[#EBE3D9] bg-white px-3 text-sm text-[#3F342C]"
+                />
+            <CommonSelect
+                  value={sort}
+                  item={[{ label: "Sort: Newest", value: "newest" }, { label: "Sort: Oldest", value: "oldest" }, { label: "Sort: Most events", value: "events" }]}
+                  w="100%"
+                  onValueChange={(value) => { setSort(value as SortKey); }}
+                  className="h-10 rounded-xl border border-[#EBE3D9] bg-white px-3 text-sm text-[#3F342C]"
+                />
           </div>
 
           {loading && <p className="p-6 text-sm text-[#736B66]">Loading clients…</p>}

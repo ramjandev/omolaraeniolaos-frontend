@@ -37,7 +37,6 @@ export default function GateStaffSearchGuestPage() {
     <GateMobileShell showHeader={false} activeTab="checkin">
       <div className="space-y-4 pt-1">
         
-        {/* Top Header */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -52,7 +51,6 @@ export default function GateStaffSearchGuestPage() {
           </h1>
         </div>
 
-        {/* Search Input Box */}
         <div className="relative">
           <input
             type="text"
@@ -64,7 +62,6 @@ export default function GateStaffSearchGuestPage() {
           <Search className="w-5 h-5 text-[#80756C] stroke-[1.8] absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Found Guest Card matching mockup 08 */}
         {searched && guests.length > 0 ? (
           guests.map((guest) => (
             <div
@@ -103,7 +100,6 @@ export default function GateStaffSearchGuestPage() {
                 </span>
               </div>
 
-              {/* View Guest CTA Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -117,7 +113,6 @@ export default function GateStaffSearchGuestPage() {
             </div>
           ))
         ) : (
-          /* Empty Search State matching mockup 08-1 */
           <div className="bg-white rounded-3xl p-6 border border-[#EAE5DC] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-3">
             <div className="w-10 h-10 rounded-full border border-[#D5CFC7] flex items-center justify-center">
               <Search className="w-5 h-5 text-[#4A403A] stroke-[1.8]" />

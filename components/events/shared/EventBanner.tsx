@@ -117,9 +117,7 @@ export interface EventBannerProps {
   status?: EventUiStatus;
   meta?: EventMeta;
   countdown?: Countdown | null;
-  /** Rendered top-right instead of the countdown (e.g. a "View plans" call to action). */
   topRight?: React.ReactNode;
-  /** Rendered bottom-right next to the date/time pill. */
   bottomRight?: React.ReactNode;
   href?: string;
   imageSrc?: string;
@@ -141,7 +139,6 @@ export function EventBanner({
   const content = (
     <>
       {imageSrc ? (
-        // Local banner previews are blob URLs, which next/image does not load.
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (

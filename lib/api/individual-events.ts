@@ -1,12 +1,20 @@
-/**
- * Individual Organizer Events API Client
- * Connects frontend UI to NestJS Individual Events API
- */
+import { store } from '@/store/store';
 
 const API_ROOT = (
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 ).replace(/\/$/, '');
+
 const API_BASE = `${API_ROOT}/individual`;
+
+function readAccessToken() {
+  if (typeof window === 'undefined') return '';
+  return (
+    store.getState().auth.accessToken ||
+    window.localStorage.getItem('accessToken') ||
+    window.localStorage.getItem('token') ||
+    ''
+  );
+}
 
 export interface IndividualEventSummary {
   id: string;
@@ -160,20 +168,11 @@ function getAuthHeaders(): HeadersInit {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (typeof window !== 'undefined') {
-    const token =
-      localStorage.getItem('accessToken') ||
-      localStorage.getItem('token');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
+  const token = readAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
-/**
- * Fetch all events for individual organizer
- */
 export async function getIndividualEvents(params?: {
   status?: string;
   search?: string;
@@ -203,9 +202,6 @@ export async function getIndividualEvents(params?: {
   return json.data || json;
 }
 
-/**
- * Get single event workspace details (4 KPIs, countdown, checklist)
- */
 export async function getIndividualEventById(
   id: string,
 ): Promise<IndividualEventWorkspaceData> {
@@ -224,9 +220,6 @@ export async function getIndividualEventById(
   return json.data || json;
 }
 
-/**
- * Create new individual event
- */
 export async function createIndividualEvent(data: {
   title: string;
   category: string;
@@ -252,9 +245,6 @@ export async function createIndividualEvent(data: {
   return json.data || json;
 }
 
-/**
- * Update event details
- */
 export async function updateIndividualEvent(
   id: string,
   data: Partial<IndividualEventSummary>,
@@ -274,9 +264,6 @@ export async function updateIndividualEvent(
   return json.data || json;
 }
 
-/**
- * Update checklist step progress
- */
 export async function updateSetupStepProgress(
   id: string,
   stepIndex: number,
@@ -297,9 +284,6 @@ export async function updateSetupStepProgress(
   return json.data || json;
 }
 
-/**
- * Publish / Activate event
- */
 export async function publishIndividualEvent(id: string): Promise<any> {
   const url = `${API_BASE}/events/${id}/publish`;
   const res = await fetch(url, {
@@ -315,9 +299,6 @@ export async function publishIndividualEvent(id: string): Promise<any> {
   return json.data || json;
 }
 
-/**
- * Get guest roster
- */
 export async function getEventGuests(
   id: string,
   params?: { search?: string; status?: string; type?: string },
@@ -344,9 +325,6 @@ export async function getEventGuests(
   return json.data || json;
 }
 
-/**
- * Add single guest
- */
 export async function addEventGuest(
   id: string,
   guest: {
@@ -376,9 +354,6 @@ export async function addEventGuest(
   return json.data || json;
 }
 
-/**
- * Bulk add guests
- */
 export async function bulkAddEventGuests(
   id: string,
   guests: Array<{
@@ -405,9 +380,6 @@ export async function bulkAddEventGuests(
   return json.data || json;
 }
 
-/**
- * Update guest
- */
 export async function updateEventGuest(
   eventId: string,
   guestId: string,
@@ -428,9 +400,6 @@ export async function updateEventGuest(
   return json.data || json;
 }
 
-/**
- * Delete guest
- */
 export async function deleteEventGuest(
   eventId: string,
   guestId: string,
@@ -449,9 +418,6 @@ export async function deleteEventGuest(
   return json.data || json;
 }
 
-/**
- * Send / Resend invitation
- */
 export async function sendGuestInvitation(
   eventId: string,
   guestId: string,
@@ -472,9 +438,6 @@ export async function sendGuestInvitation(
   return json.data || json;
 }
 
-/**
- * Get Seating Blueprint
- */
 export async function getEventSeatingBlueprint(id: string): Promise<any> {
   const url = `${API_BASE}/events/${id}/seating`;
   const res = await fetch(url, {
@@ -491,9 +454,6 @@ export async function getEventSeatingBlueprint(id: string): Promise<any> {
   return json.data || json;
 }
 
-/**
- * Assign Guest Seat
- */
 export async function assignGuestSeat(
   id: string,
   data: {
@@ -518,9 +478,6 @@ export async function assignGuestSeat(
   return json.data || json;
 }
 
-/**
- * Get live turnstile check-in telemetry
- */
 export async function getEventCheckInMonitor(
   id: string,
 ): Promise<CheckInMonitorResponse> {
@@ -541,9 +498,6 @@ export async function getEventCheckInMonitor(
   return 'data' in json ? json.data : json;
 }
 
-/**
- * Resolve check-in exception flag
- */
 export async function resolveCheckInFlag(
   id: string,
   flagId: string,
@@ -565,9 +519,6 @@ export async function resolveCheckInFlag(
   return json.data || json;
 }
 
-/**
- * Assign all gate staff
- */
 export async function assignAllGateStaff(id: string): Promise<any> {
   const url = `${API_BASE}/events/${id}/check-in/assign-all-gates`;
   const res = await fetch(url, {

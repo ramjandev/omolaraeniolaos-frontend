@@ -12,7 +12,9 @@ import {
   ArrowRight,
   SlidersHorizontal,
 } from 'lucide-react';
+import CommonSelect from '@/components/common/CommonSelect';
 import { AppShell } from '@/components/shell/AppShell';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import {
   getVenueDashboard,
   type VenueBookingStatus,
@@ -190,16 +192,16 @@ export default function VenueDashboardPage() {
     <AppShell currentRole="organizer_venue">
       <div className="space-y-7 w-full pb-12">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1F140E] tracking-tight">
-              {greeting()}, {name}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#71717A] mt-1 font-sans">
-              {loading
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title={`${greeting()}, ${name}`}
+            subtitle={
+              loading
                 ? 'Loading your venue…'
-                : `${metrics?.totalSpaces ?? 0} venues · ${metrics?.upcoming ?? 0} upcoming bookings · ${metrics?.today ?? 0} ${metrics?.today === 1 ? 'event' : 'events'} today`}
-            </p>
-          </div>
+                : `${metrics?.totalSpaces ?? 0} venues · ${metrics?.upcoming ?? 0} upcoming bookings · ${metrics?.today ?? 0} ${metrics?.today === 1 ? 'event' : 'events'} today`
+            }
+          />
           <div className="flex items-center gap-2 self-start sm:self-auto">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-[#E5E0D8] text-xs font-medium text-[#1F140E] shadow-2xs">
               <Calendar className="w-3.5 h-3.5 text-[#6E3B1C]" />
@@ -230,12 +232,11 @@ export default function VenueDashboardPage() {
 
         <div className="p-6 rounded-2xl bg-white border border-[#EFECE6] shadow-2xs space-y-5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-[#1F140E]">Upcoming Bookings</h2>
-              <p className="text-xs text-[#8C7A6B] mt-0.5">
-                Manage venue reservations and upcoming events
-              </p>
-            </div>
+            <CommonHeader
+              variant="card"
+              title="Upcoming Bookings"
+              subtitle="Manage venue reservations and upcoming events"
+            />
             <Link
               href="/organizer/venue/bookings"
               className="inline-flex items-center gap-1 text-xs font-semibold text-[#6E3B1C] hover:text-[#522B14] transition-colors self-start md:self-auto"
@@ -273,16 +274,16 @@ export default function VenueDashboardPage() {
                 className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-[#E5E0D8] bg-[#FAF8F5]/60 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#6E3B1C] text-[#1F140E] placeholder:text-[#8C7A6B] transition-all"
               />
             </div>
-            <select
+            <CommonSelect
               value={selectedCategory}
-              onChange={(event) => setSelectedCategory(event.target.value)}
-              className="px-3 py-1.5 text-xs rounded-xl border border-[#E5E0D8] bg-white text-[#1F140E] focus:outline-none focus:ring-1 focus:ring-[#6E3B1C]"
-            >
-              <option value="All">Category: All</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
+              item={[
+                { label: 'Category: All', value: 'All' },
+                ...categories.map((category) => ({ label: category, value: category })),
+              ]}
+              w={160}
+              onValueChange={setSelectedCategory}
+              className="h-9 rounded-xl border-[#E5E0D8] bg-white text-xs text-[#1F140E]"
+            />
           </div>
 
           <div className="overflow-x-auto -mx-6 px-6">
@@ -316,10 +317,12 @@ export default function VenueDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="p-6 rounded-2xl bg-white border border-[#EFECE6] shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-[#1F140E]">Venue Availability</h3>
-                <p className="text-xs text-[#8C7A6B]">Current occupancy status & upcoming schedules</p>
-              </div>
+              <CommonHeader
+                variant="card"
+                as="h3"
+                title="Venue Availability"
+                subtitle="Current occupancy status & upcoming schedules"
+              />
               <Link href="/organizer/venue/spaces" className="text-xs font-semibold text-[#6E3B1C] hover:text-[#522B14]">
                 Manage →
               </Link>
@@ -363,10 +366,12 @@ export default function VenueDashboardPage() {
 
           <div className="p-6 rounded-2xl bg-white border border-[#EFECE6] shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-[#1F140E]">Booking Calendar</h3>
-                <p className="text-xs text-[#8C7A6B]">Events slated across all spaces</p>
-              </div>
+              <CommonHeader
+                variant="card"
+                as="h3"
+                title="Booking Calendar"
+                subtitle="Events slated across all spaces"
+              />
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1F140E]">
                 <button
                   type="button"
@@ -436,10 +441,12 @@ export default function VenueDashboardPage() {
         </div>
 
         <div className="p-6 rounded-2xl bg-white border border-[#EFECE6] shadow-2xs space-y-6">
-          <div>
-            <h3 className="text-base font-bold text-[#1F140E]">Venue Performance</h3>
-            <p className="text-xs text-[#8C7A6B]">Monthly booking trends & utilization breakdown</p>
-          </div>
+          <CommonHeader
+            variant="card"
+            as="h3"
+            title="Venue Performance"
+            subtitle="Monthly booking trends & utilization breakdown"
+          />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-2">
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs">

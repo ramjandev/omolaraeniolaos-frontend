@@ -3,11 +3,12 @@
 import * as React from 'react';
 import {
   Plus,
-  ChevronDown,
   ArrowUpDown,
   MapPin,
   Trash2,
 } from 'lucide-react';
+import CommonSelect from '@/components/common/CommonSelect';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -72,7 +73,6 @@ export function GateManagementScreen({
   const [selectedStaffIds, setSelectedStaffIds] = React.useState<string[]>([]);
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('desc');
 
-  // Invite Modal State
   const [isInviteOpen, setIsInviteOpen] = React.useState(false);
   const [inviteName, setInviteName] = React.useState('');
   const [inviteEmail, setInviteEmail] = React.useState('');
@@ -81,19 +81,16 @@ export function GateManagementScreen({
   const [inviteGate, setInviteGate] = React.useState('');
   const [isSubmittingInvite, setIsSubmittingInvite] = React.useState(false);
 
-  // Assign Modal State
   const [isAssignOpen, setIsAssignOpen] = React.useState(false);
   const [selectedMemberToAssign, setSelectedMemberToAssign] = React.useState<GateStaffMember | null>(null);
   const [assignEventId, setAssignEventId] = React.useState('');
   const [assignGateNumber, setAssignGateNumber] = React.useState('');
 
-  // Assign All Modal State
   const [isAssignAllOpen, setIsAssignAllOpen] = React.useState(false);
   const [assignAllEventId, setAssignAllEventId] = React.useState('');
   const [assignAllGatePrefix, setAssignAllGatePrefix] = React.useState('Gate');
   const [isSubmittingAssignAll, setIsSubmittingAssignAll] = React.useState(false);
 
-  // View Member Modal State
   const [viewMember, setViewMember] = React.useState<GateStaffMember | null>(null);
   const [staffToDelete, setStaffToDelete] = React.useState<GateStaffMember | null>(null);
   const [removingEventId, setRemovingEventId] = React.useState<string | null>(null);
@@ -175,7 +172,6 @@ export function GateManagementScreen({
       setInviteEvent('');
       setInviteGate('');
     } catch {
-      // The API layer already shows the error toast.
     } finally {
       setIsSubmittingInvite(false);
     }
@@ -200,7 +196,6 @@ export function GateManagementScreen({
       }).unwrap();
       setIsAssignOpen(false);
     } catch {
-      // The API layer already shows the error toast.
     }
   };
 
@@ -211,7 +206,6 @@ export function GateManagementScreen({
       if (viewMember?.id === staffToDelete.id) setViewMember(null);
       setStaffToDelete(null);
     } catch {
-      // The API layer already shows the error toast.
     }
   };
 
@@ -221,7 +215,6 @@ export function GateManagementScreen({
     try {
       await unassignGateStaff({ staffId: viewMember.id, eventId }).unwrap();
     } catch {
-      // The API layer already shows the error toast.
     } finally {
       setRemovingEventId(null);
     }
@@ -242,7 +235,6 @@ export function GateManagementScreen({
       setIsAssignAllOpen(false);
       setSelectedStaffIds([]);
     } catch {
-      // The API layer already shows the error toast.
     } finally {
       setIsSubmittingAssignAll(false);
     }
@@ -251,16 +243,13 @@ export function GateManagementScreen({
   return (
     <AppShell currentRole={role}>
       <div className="space-y-6 w-full">
-        {/* Top Header Row matching Figma: "Gate Management" & "+ Invite Staff" */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-3xl md:text-4xl font-normal text-[#1F140E] dark:text-[#FBF8F5] tracking-tight">
-              Gate Management
-            </h1>
-            <p className="text-sm text-[#736B66] dark:text-muted-foreground mt-1">
-              Manage gate staff and assign them to your events.
-            </p>
-          </div>
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title="Gate Management"
+            subtitle="Manage gate staff and assign them to your events."
+          />
 
           <Button
             onClick={() => setIsInviteOpen(true)}
@@ -271,9 +260,7 @@ export function GateManagementScreen({
           </Button>
         </div>
 
-        {/* Metric Cards Row matching Figma screenshot (1 Agency Owner / 5 Gate Staff) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Card 1: Agency Owner */}
           <div className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-6 shadow-xs flex flex-col justify-between">
             <span className="font-serif text-4xl md:text-5xl font-normal text-[#8C4B24]">
               {ownerCount}
@@ -283,7 +270,6 @@ export function GateManagementScreen({
             </span>
           </div>
 
-          {/* Card 2: Gate Staff */}
           <div className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-6 shadow-xs flex flex-col justify-between">
             <span className="font-serif text-4xl md:text-5xl font-normal text-[#8C4B24]">
               {gateStaffCount}
@@ -294,11 +280,8 @@ export function GateManagementScreen({
           </div>
         </div>
 
-        {/* Filter Bar Row: Search input & All Events on Left, Assign All Gate Staff Button on Right */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Left Controls: Search Bar & Events Filter */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
-            {/* Left Search Bar */}
             <div className="relative w-full sm:w-80">
               <input
                 type="text"
@@ -312,25 +295,20 @@ export function GateManagementScreen({
               </div>
             </div>
 
-            {/* Events Filter Dropdown */}
-            <div className="relative w-full sm:w-48">
-              <select
+            <div className="w-full sm:w-48">
+              <CommonSelect
                 value={selectedEventFilter}
-                onChange={(e) => setSelectedEventFilter(e.target.value)}
-                className="w-full appearance-none px-3.5 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-[#8C4B24]/40 cursor-pointer pr-8"
-              >
-                <option value="all">All Events</option>
-                {eventsList.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.title}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                item={[
+                  { label: 'All Events', value: 'all' },
+                  ...eventsList.map((ev) => ({ label: ev.title, value: ev.id })),
+                ]}
+                w="100%"
+                onValueChange={setSelectedEventFilter}
+                className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card text-foreground"
+              />
             </div>
           </div>
 
-          {/* Right Action Button: Assign All Gate Staff */}
           <Button
             type="button"
             disabled={eventsList.length === 0 || gateStaffCount === 0}
@@ -344,7 +322,6 @@ export function GateManagementScreen({
           </Button>
         </div>
 
-        {/* Gate Staff Table matching Figma Screenshot */}
         <div className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -417,7 +394,6 @@ export function GateManagementScreen({
                       key={staff.id}
                       className="hover:bg-[#FAF8F5]/60 dark:hover:bg-muted/20 transition-colors"
                     >
-                      {/* Checkbox */}
                       <td className="py-3.5 px-4">
                         <input
                           type="checkbox"
@@ -427,7 +403,6 @@ export function GateManagementScreen({
                         />
                       </td>
 
-                      {/* Staff Member Avatar & Info */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <Avatar className="w-9 h-9 border border-[#EBE3D9]">
@@ -449,19 +424,16 @@ export function GateManagementScreen({
                         </div>
                       </td>
 
-                      {/* Role Badge */}
                       <td className="py-3.5 px-4">
                         <span className="inline-block px-3 py-1 rounded-xl text-[11px] font-medium bg-[#FAF8F5] dark:bg-muted border border-[#EBE3D9] dark:border-border text-[#736B66] dark:text-muted-foreground">
                           {staff.role}
                         </span>
                       </td>
 
-                      {/* Assigned Events */}
                       <td className="py-3.5 px-4 text-[#261710] dark:text-foreground font-medium">
                         {staff.assignedEventsCount} {staff.assignedEventsCount === 1 ? 'Event' : 'Events'}
                       </td>
 
-                      {/* Current Assignment */}
                       <td className="py-3.5 px-4">
                         <div className="text-[#261710] dark:text-foreground font-medium truncate max-w-xs">
                           {staff.currentAssignment || 'Not assigned'}
@@ -473,7 +445,6 @@ export function GateManagementScreen({
                         )}
                       </td>
 
-                      {/* Actions: View & Assign */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -512,7 +483,6 @@ export function GateManagementScreen({
           </div>
         </div>
 
-        {/* Modal: Invite Gate Staff */}
         <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
           <DialogContent className="sm:max-w-lg p-6 rounded-2xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-2">
@@ -522,7 +492,6 @@ export function GateManagementScreen({
             </DialogHeader>
 
             <form onSubmit={handleSendInvite} className="space-y-4 pt-1">
-              {/* Full Name */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
                   Full Name*
@@ -536,7 +505,6 @@ export function GateManagementScreen({
                 />
               </div>
 
-              {/* Email Address & Phone Number Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
@@ -565,7 +533,6 @@ export function GateManagementScreen({
                 </div>
               </div>
 
-              {/* Role */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
                   Role
@@ -577,24 +544,21 @@ export function GateManagementScreen({
                 />
               </div>
 
-              {/* Assign to Event & Assign to Gate Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
                     Assign to Event
                   </Label>
-                  <select
-                    value={inviteEvent}
-                    onChange={(e) => setInviteEvent(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-[#FAF8F5]/50 dark:bg-muted/30 text-foreground focus:outline-none"
-                  >
-                    <option value="">Do not assign yet</option>
-                    {eventsList.map((ev) => (
-                      <option key={ev.id} value={ev.id}>
-                        {ev.title}
-                      </option>
-                    ))}
-                  </select>
+                  <CommonSelect
+                    value={inviteEvent || '__none__'}
+                    item={[
+                      { label: 'Do not assign yet', value: '__none__' },
+                      ...eventsList.map((ev) => ({ label: ev.title, value: ev.id })),
+                    ]}
+                    w="100%"
+                    onValueChange={(value) => setInviteEvent(value === '__none__' ? '' : value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-[#FAF8F5]/50 dark:bg-muted/30 text-foreground"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -610,7 +574,6 @@ export function GateManagementScreen({
                 </div>
               </div>
 
-              {/* Send Invitation Button */}
               <Button
                 type="submit"
                 disabled={isSubmittingInvite}
@@ -622,7 +585,6 @@ export function GateManagementScreen({
           </DialogContent>
         </Dialog>
 
-        {/* Modal: Assign Staff to Event */}
         <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
           <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-2">
@@ -656,17 +618,14 @@ export function GateManagementScreen({
                   <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
                     Target Event
                   </Label>
-                  <select
-                    value={assignEventId}
-                    onChange={(e) => setAssignEventId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card text-foreground focus:outline-none"
-                  >
-                    {eventsList.map((ev) => (
-                      <option key={ev.id} value={ev.id}>
-                        {ev.title}
-                      </option>
-                    ))}
-                  </select>
+                  <CommonSelect
+                    value={assignEventId || undefined}
+                    item={eventsList.map((ev) => ({ label: ev.title, value: ev.id }))}
+                    w="100%"
+                    placeholder="Select event"
+                    onValueChange={setAssignEventId}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card text-foreground"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -692,7 +651,6 @@ export function GateManagementScreen({
           </DialogContent>
         </Dialog>
 
-        {/* Modal: Assign All Gate Staff */}
         <Dialog open={isAssignAllOpen} onOpenChange={setIsAssignAllOpen}>
           <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-2">
@@ -712,18 +670,14 @@ export function GateManagementScreen({
                 <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
                   Target Event*
                 </Label>
-                <select
-                  required
-                  value={assignAllEventId}
-                  onChange={(e) => setAssignAllEventId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-[#8C4B24]/40 cursor-pointer"
-                >
-                  {eventsList.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.title}
-                    </option>
-                  ))}
-                </select>
+                <CommonSelect
+                  value={assignAllEventId || undefined}
+                  item={eventsList.map((ev) => ({ label: ev.title, value: ev.id }))}
+                  w="100%"
+                  placeholder="Select event"
+                  onValueChange={setAssignAllEventId}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card text-foreground"
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -749,7 +703,6 @@ export function GateManagementScreen({
           </DialogContent>
         </Dialog>
 
-        {/* Modal: View staff profile */}
         <Dialog open={Boolean(viewMember)} onOpenChange={(open) => !open && setViewMember(null)}>
           <DialogContent className="sm:max-w-[420px] p-0 rounded-2xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl overflow-hidden">
             <DialogTitle className="sr-only">

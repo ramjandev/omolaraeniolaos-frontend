@@ -9,8 +9,6 @@ import type {
 
 export const planAPI = baseAPI.injectEndpoints({
   endpoints: (build) => ({
-    // Without a type the admin gets every plan, archived ones included.
-    // With a type only active plans for that organizer type are returned.
     getPlans: build.query<GetPlansResponse, PlanOrganizerType | void>({
       query: (type) => ({
         url: "/admin/plans",

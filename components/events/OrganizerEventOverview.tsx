@@ -88,7 +88,6 @@ export function OrganizerEventOverview({ organizer, eventId }: OrganizerEventOve
       await publishEvent(event.id).unwrap();
       toast.success(`${event.title} is live. The three event cards are now on this page.`);
     } catch {
-      // The API layer already shows the error.
     }
   };
 

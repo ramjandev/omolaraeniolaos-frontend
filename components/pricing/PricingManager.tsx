@@ -59,7 +59,6 @@ export function PricingManager({ initialTiers }: PricingManagerProps) {
 
   return (
     <div className="space-y-8">
-      {/* Top Save Confirmation */}
       {isSaved && (
         <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center gap-2 text-xs">
           <Check className="w-4 h-4 text-emerald-600" />
@@ -67,7 +66,6 @@ export function PricingManager({ initialTiers }: PricingManagerProps) {
         </div>
       )}
 
-      {/* Financial Account & Gateway Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-border/80 shadow-xs">
           <CardContent className="p-5 space-y-1">
@@ -119,7 +117,6 @@ export function PricingManager({ initialTiers }: PricingManagerProps) {
         </Card>
       </div>
 
-      {/* Ticket Tier Editor */}
       <Card className="border-border/80 shadow-xs">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <div>

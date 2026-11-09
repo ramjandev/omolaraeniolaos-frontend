@@ -1,5 +1,6 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ChevronDown, X } from 'lucide-react';
@@ -115,17 +116,14 @@ export function InviteUserModal({
             <div className="space-y-1.5">
               <label className="text-xs font-normal text-foreground/90 block">Role</label>
               <div className="relative">
-                <select
+                <CommonSelect
                   aria-label="User Role"
                   value={role}
-                  onChange={(event) => setRole(event.target.value)}
-                  className="w-full appearance-none px-3.5 pr-8 py-2.5 rounded-xl border border-border/80 bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#703816] cursor-pointer"
-                >
-                  {ROLE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-muted-foreground pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
+                  item={ROLE_OPTIONS.map((option) => ({ label: option, value: option }))}
+                  w="100%"
+                  onValueChange={setRole}
+                  className="h-10 w-full rounded-xl border-border/80 bg-background px-3.5 text-xs"
+                />
               </div>
             </div>
 
@@ -146,15 +144,14 @@ export function InviteUserModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-normal text-foreground/90 block">Status</label>
                 <div className="relative">
-                  <select
-                    aria-label="User Status"
-                    value={status}
-                    onChange={(event) => setStatus(event.target.value as 'Active' | 'Suspended')}
-                    className="w-full appearance-none px-3.5 pr-8 py-2.5 rounded-xl border border-border/80 bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#703816] cursor-pointer"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Suspended">Suspended</option>
-                  </select>
+                  <CommonSelect
+                  aria-label="User Status"
+                  value={status}
+                  item={[{ label: "Active", value: "Active" }, { label: "Suspended", value: "Suspended" }]}
+                  w="100%"
+                  onValueChange={(value) => { setStatus(value as 'Active' | 'Suspended'); }}
+                  className="w-full px-3.5 pr-8 py-2.5 rounded-xl border border-border/80 bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#703816] cursor-pointer"
+                />
                   <ChevronDown className="w-4 h-4 text-muted-foreground pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
               </div>

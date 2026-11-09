@@ -17,6 +17,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import CommonSelect from '@/components/common/CommonSelect';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { getAgencyReport, type AgencyReport } from '@/lib/api/agency-dashboard';
 
 const RANGES = [
@@ -112,12 +114,10 @@ export function AgencyReports() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <h1 className="font-serif text-4xl font-medium text-[#1F140E]">Reports</h1>
-          <p className="mt-1 text-sm text-[#736B66]">Agency-wide event performance and business analytics</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title="Reports"
+        description="Agency-wide event performance and business analytics"
+      >
           <div className="flex flex-wrap rounded-xl border border-[#E7E1DA] bg-white p-1">
             {RANGES.map((item) => (
               <button
@@ -132,26 +132,26 @@ export function AgencyReports() {
               </button>
             ))}
           </div>
-          <select
-            value={eventId}
-            onChange={(event) => setEventId(event.target.value)}
-            className="h-9 rounded-xl border border-[#E7E1DA] bg-white px-3 text-xs text-[#3F342C]"
-          >
-            <option value="">All Events</option>
-            {report?.filters.events.map((event) => (
-              <option key={event.id} value={event.id}>{event.title}</option>
-            ))}
-          </select>
-          <select
-            value={clientId}
-            onChange={(event) => setClientId(event.target.value)}
-            className="h-9 rounded-xl border border-[#E7E1DA] bg-white px-3 text-xs text-[#3F342C]"
-          >
-            <option value="">All Clients</option>
-            {report?.filters.clients.map((client) => (
-              <option key={client.id} value={client.id}>{client.name}</option>
-            ))}
-          </select>
+          <CommonSelect
+            value={eventId || '__all__'}
+            item={[
+              { label: 'All Events', value: '__all__' },
+              ...(report?.filters.events.map((event) => ({ label: event.title, value: event.id })) || []),
+            ]}
+            w={160}
+            onValueChange={(value) => setEventId(value === '__all__' ? '' : value)}
+            className="h-9 rounded-xl border-[#E7E1DA] bg-white text-xs text-[#3F342C]"
+          />
+          <CommonSelect
+            value={clientId || '__all__'}
+            item={[
+              { label: 'All Clients', value: '__all__' },
+              ...(report?.filters.clients.map((client) => ({ label: client.name, value: client.id })) || []),
+            ]}
+            w={160}
+            onValueChange={(value) => setClientId(value === '__all__' ? '' : value)}
+            className="h-9 rounded-xl border-[#E7E1DA] bg-white text-xs text-[#3F342C]"
+          />
           <button
             type="button"
             onClick={exportReport}
@@ -160,8 +160,7 @@ export function AgencyReports() {
             <Download className="size-3.5" />
             Export Report
           </button>
-        </div>
-      </div>
+      </PageHeader>
 
       {range === 'custom' && (
         <div className="flex flex-wrap gap-2">

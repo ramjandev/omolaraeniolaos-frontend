@@ -1,5 +1,7 @@
 "use client";
 
+import CommonSelect from "@/components/common/CommonSelect";
+import { CommonHeader } from "@/components/shared/CommonHeader";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { ExperienceFormValues } from "@/lib/validations/eventWizardSchemas";
@@ -38,7 +40,7 @@ export function ExperienceStep({
   continueLabel,
   disabled,
 }: ExperienceStepProps) {
-  const { control, register, setValue, getValues, formState } = form;
+  const { control, register, setValue, getValues, watch, formState } = form;
 
   const insertVariable = (
     field: "confirmedMessage" | "tentativeMessage" | "declinedMessage",
@@ -51,14 +53,12 @@ export function ExperienceStep({
 
   return (
     <section className="space-y-5">
-      <div>
-        <h2 className="font-serif text-3xl font-normal tracking-tight text-[#1F140E] dark:text-foreground">
-          Personalize The Guest Experience
-        </h2>
-        <p className="mt-1 text-sm text-[#6F6761] dark:text-muted-foreground">
-          Tailor how your guests interact with your invitation.
-        </p>
-      </div>
+      <CommonHeader
+        variant="section"
+        as="h2"
+        title="Personalize The Guest Experience"
+        subtitle="Tailor how your guests interact with your invitation."
+      />
 
       <div className="space-y-4 rounded-3xl border border-[#EBE3D9] bg-white p-4 shadow-xs dark:border-border dark:bg-card md:p-6">
         <Section
@@ -236,16 +236,13 @@ export function ExperienceStep({
                 </span>
               </label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <select
-                  {...register("reminderLead")}
-                  className="h-11 rounded-xl border border-[#E4DDD4] bg-[#FBF8F4] px-3 text-sm text-[#1F140E] dark:border-border dark:bg-card dark:text-foreground"
-                >
-                  {REMINDER_LEADS.map((lead) => (
-                    <option key={lead} value={lead}>
-                      {lead}
-                    </option>
-                  ))}
-                </select>
+                <CommonSelect
+                  value={watch("reminderLead")}
+                  item={REMINDER_LEADS.map((lead) => ({ label: lead, value: lead }))}
+                  w="100%"
+                  onValueChange={(value) => setValue("reminderLead", value, { shouldValidate: true, shouldDirty: true })}
+                  className="h-11 rounded-xl border-[#E4DDD4] bg-[#FBF8F4] text-sm text-[#1F140E] dark:border-border dark:bg-card dark:text-foreground"
+                />
                 <input
                   type="date"
                   {...register("rsvpDeadline")}

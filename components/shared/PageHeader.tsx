@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -32,33 +33,37 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        'mb-5 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-end sm:justify-between',
+        'flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between',
         className,
       )}
     >
       <div className="min-w-0">
-        {eyebrow && (
+        {eyebrow ? (
           <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
             {eyebrow}
           </p>
-        )}
-        <h1 className="page-title">{title}</h1>
-        {description && <p className="page-subtitle">{description}</p>}
+        ) : null}
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title={title}
+          subtitle={description}
+        />
       </div>
 
-      {(action || children) && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {action || children ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">
           {children}
-          {action && (
+          {action ? (
             <Button asChild>
               <Link href={action.href}>
-                {ActionIcon && <ActionIcon className="size-4" />}
+                {ActionIcon ? <ActionIcon className="size-4" /> : null}
                 {action.label}
               </Link>
             </Button>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </header>
   );
 }

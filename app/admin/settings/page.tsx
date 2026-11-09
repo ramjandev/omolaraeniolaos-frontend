@@ -20,7 +20,6 @@ export default function AdminSettingsPage() {
   return (
     <AppShell currentRole="admin">
       <div className="space-y-6">
-        {/* Header matching Event Details Page-4.png */}
         <div className="space-y-1">
           <h1 className="text-2xl font-serif font-semibold tracking-tight text-foreground">
             Platform Settings
@@ -30,9 +29,7 @@ export default function AdminSettingsPage() {
           </p>
         </div>
 
-        {/* 6 Settings Cards Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Card 1: WhatsApp Business API */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">WhatsApp Business API</CardTitle>
@@ -76,7 +73,6 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card 2: AI / Speech Provider */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">AI / Speech Provider</CardTitle>
@@ -120,7 +116,6 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card 3: Payment Gateway */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Payment Gateway</CardTitle>
@@ -165,7 +160,6 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card 4: Feature Flags */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Feature Flags</CardTitle>
@@ -248,7 +242,6 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card 5: Supported Languages */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Supported Languages</CardTitle>
@@ -302,7 +295,6 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card 6: Default Plan Settings */}
           <Card className="border-border/80 shadow-2xs">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Default Plan Settings</CardTitle>

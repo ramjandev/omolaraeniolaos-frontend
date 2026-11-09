@@ -83,9 +83,7 @@ export function GuestsManager({ initialAttendees }: GuestsManagerProps) {
 
   return (
     <div className="space-y-6">
-      {/* Top Controls Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -97,9 +95,7 @@ export function GuestsManager({ initialAttendees }: GuestsManagerProps) {
           />
         </div>
 
-        {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {/* Status Filter */}
           <div className="flex items-center p-1 bg-muted/60 rounded-xl border border-border/60">
             {(['all', 'checked_in', 'attending'] as const).map((st) => (
               <button
@@ -128,7 +124,6 @@ export function GuestsManager({ initialAttendees }: GuestsManagerProps) {
         </div>
       </div>
 
-      {/* Guest Table Card */}
       <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
         <div className="p-4 border-b border-border/80 flex items-center justify-between text-xs text-muted-foreground">
           <span>
@@ -159,7 +154,6 @@ export function GuestsManager({ initialAttendees }: GuestsManagerProps) {
 
                 return (
                   <tr key={guest.id} className="hover:bg-muted/20 transition-colors">
-                    {/* Guest info */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-8 h-8 shrink-0 border border-border">
@@ -175,22 +169,18 @@ export function GuestsManager({ initialAttendees }: GuestsManagerProps) {
                       </div>
                     </td>
 
-                    {/* Event name */}
                     <td className="py-3.5 px-4 text-muted-foreground max-w-[180px] truncate">
                       {guest.eventTitle}
                     </td>
 
-                    {/* Pass tier */}
                     <td className="py-3.5 px-4 font-medium text-foreground">
                       {guest.ticketTierName}
                     </td>
 
-                    {/* Status */}
                     <td className="py-3.5 px-4">
                       <StatusBadge status={guest.status} />
                     </td>
 
-                    {/* QR Code */}
                     <td className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground">
                       <span className="flex items-center gap-1.5">
                         <QrCode className="w-3.5 h-3.5 text-primary" />
@@ -198,12 +188,10 @@ export function GuestsManager({ initialAttendees }: GuestsManagerProps) {
                       </span>
                     </td>
 
-                    {/* Table / Seat */}
                     <td className="py-3.5 px-4 text-muted-foreground">
                       {guest.tableOrSeat || 'General'}
                     </td>
 
-                    {/* Action buttons */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button

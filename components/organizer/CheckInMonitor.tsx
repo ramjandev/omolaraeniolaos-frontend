@@ -1,5 +1,6 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import Link from 'next/link';
 import {
@@ -352,7 +353,6 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
       subtitle={`${eventTitle} • Live gate check-in`}
     >
       <div className="w-full space-y-6">
-        {/* Toast Alert */}
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl bg-[#261710] text-white shadow-2xl border border-[#D4A373]/40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
             <CheckCircle2 className="w-5 h-5 text-[#D4A373]" />
@@ -421,7 +421,6 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
           </div>
         </div>
 
-        {/* 5 KPI Metric Cards matching media_1791786578996_114c7a20.png */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <Card className="border-border/80 shadow-2xs bg-card p-5 space-y-1">
             <span className="font-serif text-3xl font-bold text-[#8C4B24]">{metrics.invited}</span>
@@ -454,9 +453,7 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
           </Card>
         </div>
 
-        {/* 2-Column Split Dashboard */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column (7 / 12): Real-time check-in feed */}
           <div className="lg:col-span-7 space-y-4">
             <Card className="rounded-3xl border border-[#EBE3D9] bg-card p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
@@ -480,7 +477,6 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
                 Newest arrivals appear first
               </p>
 
-              {/* Search & Filter row */}
               <div className="flex items-center gap-3 pt-1">
                 <div className="relative flex-1">
                   <Input
@@ -492,21 +488,17 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
                 </div>
 
                 <div className="relative">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="h-10 px-3 pr-8 rounded-xl bg-card border border-[#EBE3D9] text-xs text-foreground appearance-none cursor-pointer"
-                  >
-                    <option value="all">All statuses</option>
-                    <option value="Checked in">Checked in</option>
-                    <option value="VIP arrival">VIP arrival</option>
-                    <option value="Offline-synced">Offline-synced</option>
-                  </select>
+                  <CommonSelect
+                  value={statusFilter}
+                  item={[{ label: "All statuses", value: "all" }, { label: "Checked in", value: "Checked in" }, { label: "VIP arrival", value: "VIP arrival" }, { label: "Offline-synced", value: "Offline-synced" }]}
+                  w="100%"
+                  onValueChange={(value) => { setStatusFilter(value); }}
+                  className="h-10 px-3 pr-8 rounded-xl bg-card border border-[#EBE3D9] text-xs text-foreground cursor-pointer"
+                />
                   <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
-              {/* Feed Table List matching screenshot */}
               <div className="divide-y divide-[#EBE3D9] pt-2">
                 <div className="py-2.5 flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   <span>Guest / Time</span>
@@ -571,9 +563,7 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
             </Card>
           </div>
 
-          {/* Right Column (5 / 12): Flagged Queue & Gate staff */}
           <div className="lg:col-span-5 space-y-6">
-            {/* CARD 1: Flagged Queue matching media_1791786578996_114c7a20.png */}
             <Card className="rounded-3xl border border-[#F5D5C6] bg-[#FFFBF9] p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -606,7 +596,6 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
                       </p>
                     </div>
 
-                    {/* Recommendation Box matching screenshot */}
                     <div className="p-2.5 rounded-xl bg-[#FEF9E7] border border-[#F9E79F] text-[11px] font-medium text-[#7D6608]">
                       {item.recommendation}
                     </div>
@@ -636,7 +625,6 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
               </p>
             </Card>
 
-            {/* CARD 2: Gate staff matching media_1791786578996_114c7a20.png */}
             <Card className="rounded-3xl border border-[#EBE3D9] bg-card p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -660,7 +648,6 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
                 </div>
               </div>
 
-              {/* Staff List */}
               <div className="divide-y divide-[#EBE3D9] pt-1">
                 {staff.length === 0 && (
                   <p className="py-4 text-xs text-muted-foreground">No gate staff are assigned to this event yet.</p>
@@ -704,7 +691,6 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
           </div>
         </div>
 
-        {/* MODAL: ADD STAFF */}
         <Dialog open={isAddStaffOpen} onOpenChange={setIsAddStaffOpen}>
           <DialogContent className="sm:max-w-md rounded-3xl bg-white p-6 space-y-4 dark:bg-[#1A110B]">
             <DialogHeader>
@@ -719,18 +705,16 @@ export function CheckInMonitor({ organizer = 'individual' }: { organizer?: Organ
             <form onSubmit={handleAddStaff} className="space-y-4 pt-1">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Existing gate staff</Label>
-                <select
-                  value={selectedStaffId}
-                  onChange={(e) => setSelectedStaffId(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-input bg-card text-xs text-foreground"
-                >
-                  <option value="">Invite someone new</option>
-                  {rosterChoices.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.fullName}
-                    </option>
-                  ))}
-                </select>
+                <CommonSelect
+                  value={selectedStaffId || '__new__'}
+                  item={[
+                    { label: 'Invite someone new', value: '__new__' },
+                    ...rosterChoices.map((member) => ({ label: member.fullName, value: member.id })),
+                  ]}
+                  w="100%"
+                  onValueChange={(value) => setSelectedStaffId(value === '__new__' ? '' : value)}
+                  className="h-10 w-full rounded-xl border-input bg-card text-xs"
+                />
               </div>
 
               {!selectedStaffId && (

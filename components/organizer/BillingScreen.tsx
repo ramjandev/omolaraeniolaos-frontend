@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/shared/PageHeader";
 import { AppShell } from "@/components/shell/AppShell";
 import { Button } from "@/components/ui/button";
 
@@ -134,29 +135,21 @@ export function BillingScreen({
   return (
     <AppShell currentRole={role}>
       <div className="w-full space-y-8">
-        {/* Header row */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-4xl font-medium text-[#1F140E] dark:text-[#FBF8F5] tracking-tight">
-              Billing
-            </h1>
-            <p className="text-lg text-[#6F6761] dark:text-muted-foreground mt-1">
-              Manage your subscription and billing details.
-            </p>
-          </div>
-
-          {role === "organizer_individual" && (
+        <PageHeader
+          title="Billing"
+          description="Manage your subscription and billing details."
+        >
+          {role === "organizer_individual" ? (
             <Button
               type="button"
               onClick={() => setIsUpgradeOpen(true)}
-              className="h-11 bg-[#7B3F1D] hover:bg-[#6A3518] text-white px-5 rounded-xl font-medium text-base shadow-xs transition-colors shrink-0 self-start"
+              className="h-11 bg-[#7B3F1D] hover:bg-[#6A3518] text-white px-5 rounded-xl font-medium text-base shadow-xs transition-colors"
             >
               Become a Agency/Venue Owner
             </Button>
-          )}
-        </div>
+          ) : null}
+        </PageHeader>
 
-        {/* Pricing plans: cream container, flat left card, elevated right card */}
         <PlanCardGrid>
           {isPlansLoading && (
             <p className="text-sm text-[#6F6761]">Loading plans…</p>
@@ -183,9 +176,7 @@ export function BillingScreen({
           })}
         </PlanCardGrid>
 
-        {/* Payment method (left) + billing history (right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start w-full">
-          {/* Payment Method */}
           <div className="lg:col-span-4 rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-4 space-y-4">
             <div>
               <h3 className="text-xl font-medium text-[#1F140E] dark:text-foreground">
@@ -196,7 +187,6 @@ export function BillingScreen({
               </p>
             </div>
 
-            {/* Card mockup */}
             <div className="rounded-xl bg-[#33261C] text-white p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-base uppercase text-white/60">
@@ -225,7 +215,6 @@ export function BillingScreen({
               </div>
             </div>
 
-            {/* Metadata */}
             <div className="space-y-1.5 text-base">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[#6F6761] dark:text-muted-foreground">
@@ -246,7 +235,6 @@ export function BillingScreen({
             </div>
           </div>
 
-          {/* Billing History */}
           <div className="lg:col-span-8 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
               <div>
@@ -272,7 +260,6 @@ export function BillingScreen({
               </div>
             </div>
 
-            {/* Table */}
             <div className="rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-center text-base border-collapse">
@@ -352,7 +339,6 @@ export function BillingScreen({
           </div>
         </div>
 
-        {/* Modal: View Invoice */}
         <Dialog
           open={Boolean(selectedInvoice)}
           onOpenChange={(open) => !open && setSelectedInvoice(null)}
@@ -440,7 +426,6 @@ export function BillingScreen({
           </DialogContent>
         </Dialog>
 
-        {/* Modal: Upgrade to Agency or Venue Owner */}
         <Dialog open={isUpgradeOpen} onOpenChange={setIsUpgradeOpen}>
           <DialogContent className="sm:max-w-lg p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-3 border-b border-border">
@@ -509,7 +494,6 @@ export function BillingScreen({
           </DialogContent>
         </Dialog>
 
-        {/* Modal: Select Grand Celebration Pass Checkout */}
         <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
           <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-2">

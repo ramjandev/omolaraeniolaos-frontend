@@ -1,36 +1,40 @@
 "use client";
 
 import { AuthShowcase } from "@/components/auth/AuthShowcase";
-import { Logo } from "@/components/auth/onboarding-ui";
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Logo, inputClass } from "@/components/auth/onboarding";
+import CommonButton from "@/components/common/CommonButton";
+import { CommonHeader } from "@/components/shared/CommonHeader";
+import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  resetPasswordSchema,
-  ResetPasswordFormData,
-} from "@/lib/validations/authSchemas";
+import { z } from "zod";
 import { useResetPasswordMutation } from "@/store/Auth/authApi";
+import { getApiErrorMessage } from "@/store/Auth/types/authTypes";
 import { toast } from "react-toastify";
 
-const fieldClass =
-  "w-full h-12 px-3 text-[15px] rounded-xl border border-[#E8E2D8] bg-[#FAF8F4] text-[#1F140E] " +
-  "placeholder:text-[#B3AAA1] outline-none transition focus:bg-white focus:border-[#703816] focus:ring-2 focus:ring-[#703816]/15";
+const newPasswordSchema = z
+  .object({
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
-const labelClass = "block mb-2 text-[15px] text-[#1F140E]";
-
-const primaryButtonClass =
-  "w-full h-[52px] px-5 rounded-xl bg-[#7A3B18] hover:bg-[#632F13] text-white text-base font-medium " +
-  "shadow-[0_2px_0_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.12)] transition-colors cursor-pointer " +
-  "disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 " +
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A3B18]";
+type NewPasswordFormData = z.infer<typeof newPasswordSchema>;
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tokenFromUrl = searchParams?.get("token") || searchParams?.get("code") || "";
+  const token = (
+    searchParams?.get("token") ||
+    searchParams?.get("code") ||
+    ""
+  ).trim();
 
   const [resetPassword, { isLoading }] = useResetPasswordMutation();
   const [showPassword, setShowPassword] = React.useState(false);
@@ -40,87 +44,77 @@ function ResetPasswordForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
-  } = useForm<ResetPasswordFormData>({
-    resolver: zodResolver(resetPasswordSchema),
+  } = useForm<NewPasswordFormData>({
+    resolver: zodResolver(newPasswordSchema),
     defaultValues: {
-      token: tokenFromUrl,
       newPassword: "",
       confirmPassword: "",
     },
   });
 
-  React.useEffect(() => {
-    if (tokenFromUrl) {
-      setValue("token", tokenFromUrl, { shouldValidate: true });
+  const onSubmit = async (data: NewPasswordFormData) => {
+    if (!token) {
+      toast.error("This reset link is missing or invalid. Please request a new one.");
+      return;
     }
-  }, [tokenFromUrl, setValue]);
 
-  const onSubmit = async (data: ResetPasswordFormData) => {
     try {
       await resetPassword({
-        token: data.token,
+        token,
         newPassword: data.newPassword,
       }).unwrap();
 
       setIsSuccess(true);
-      toast.success("Password updated successfully! You may now sign in.");
+      toast.success("Password updated successfully. You may now sign in.");
       setTimeout(() => {
-        router.push("/login");
+        router.push("/");
       }, 2000);
-    } catch (err: any) {
-      const errMsg =
-        err?.data?.message ||
-        err?.message ||
-        "Failed to reset password. Please verify your token and try again.";
-      toast.error(errMsg);
+    } catch (err: unknown) {
+      toast.error(
+        getApiErrorMessage(
+          err,
+          "Failed to reset password. Please request a new reset link and try again.",
+        ),
+      );
     }
   };
+
+  if (!token && !isSuccess) {
+    return (
+      <div className="w-full max-w-[480px] text-center">
+        <CommonHeader
+          variant="hero"
+          as="h1"
+          title="Reset Link Required"
+          subtitle="Open the secure link from your email to create a new password. If the link expired, request a new one."
+        />
+        <div className="mt-8 space-y-3">
+          <CommonButton to="/forgot-password" size="lg" fullWidth>
+            Request Reset Link
+          </CommonButton>
+          <CommonButton to="/" variant="outline" showLeftIcon fullWidth>
+            Back to Sign In
+          </CommonButton>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[480px]">
       {!isSuccess ? (
         <>
-          <div className="text-center">
-            <h1 className="font-[family-name:var(--font-display,serif)] text-[36px] sm:text-[44px] font-semibold leading-[1.15] tracking-tight text-[#1F140E]">
-              Create New Password
-            </h1>
-            <p className="mt-3 text-base sm:text-[17px] leading-7 text-[#6B625B]">
-              Enter the reset token received in your email and choose a secure new password.
-            </p>
-          </div>
+          <CommonHeader
+            variant="hero"
+            as="h1"
+            title="Create New Password"
+            subtitle="Choose a secure new password for your McEniesVite account."
+          />
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-9 space-y-5">
             <div>
-              <label htmlFor="token" className={labelClass}>
-                Reset Token / Code <span aria-hidden="true">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="token"
-                  type="text"
-                  autoComplete="one-time-code"
-                  {...register("token")}
-                  placeholder="Paste your reset token"
-                  className={`${fieldClass} pl-11 ${
-                    errors.token ? "border-red-500 focus:border-red-500" : ""
-                  }`}
-                />
-                <KeyRound
-                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8C7A6B]"
-                  strokeWidth={1.7}
-                />
-              </div>
-              {errors.token && (
-                <p className="mt-1.5 text-xs text-red-600 font-medium">
-                  {errors.token.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="newPassword" className={labelClass}>
+              <label htmlFor="newPassword" className={inputClass.label}>
                 New Password <span aria-hidden="true">*</span>
               </label>
               <div className="relative">
@@ -130,7 +124,7 @@ function ResetPasswordForm() {
                   autoComplete="new-password"
                   {...register("newPassword")}
                   placeholder="Min. 8 characters"
-                  className={`${fieldClass} pr-12 ${
+                  className={`${inputClass.input} pr-12 ${
                     errors.newPassword ? "border-red-500 focus:border-red-500" : ""
                   }`}
                 />
@@ -148,14 +142,12 @@ function ResetPasswordForm() {
                 </button>
               </div>
               {errors.newPassword && (
-                <p className="mt-1.5 text-xs text-red-600 font-medium">
-                  {errors.newPassword.message}
-                </p>
+                <p className={inputClass.error}>{errors.newPassword.message}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className={labelClass}>
+              <label htmlFor="confirmPassword" className={inputClass.label}>
                 Confirm New Password <span aria-hidden="true">*</span>
               </label>
               <div className="relative">
@@ -165,7 +157,7 @@ function ResetPasswordForm() {
                   autoComplete="new-password"
                   {...register("confirmPassword")}
                   placeholder="Repeat new password"
-                  className={`${fieldClass} pr-12 ${
+                  className={`${inputClass.input} pr-12 ${
                     errors.confirmPassword
                       ? "border-red-500 focus:border-red-500"
                       : ""
@@ -187,32 +179,28 @@ function ResetPasswordForm() {
                 </button>
               </div>
               {errors.confirmPassword && (
-                <p className="mt-1.5 text-xs text-red-600 font-medium">
+                <p className={inputClass.error}>
                   {errors.confirmPassword.message}
                 </p>
               )}
             </div>
 
-            <button
+            <CommonButton
               type="submit"
+              size="lg"
+              fullWidth
+              showDefaultIcon={!isLoading}
               disabled={isLoading}
-              className={`${primaryButtonClass} group`}
+              isLoading={isLoading}
+              loadingText="Updating Password..."
             >
-              <span>
-                {isLoading ? "Updating Password..." : "Reset & Save Password"}
-              </span>
-              {!isLoading && (
-                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-              )}
-            </button>
+              Reset & Save Password
+            </CommonButton>
 
             <div className="pt-2 text-center">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 text-[14px] text-[#6B625B] hover:text-[#7A3B18] transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" /> Back to Sign In
-              </Link>
+              <CommonButton to="/" variant="outline" showLeftIcon>
+                Back to Sign In
+              </CommonButton>
             </div>
           </form>
         </>
@@ -221,7 +209,7 @@ function ResetPasswordForm() {
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#E7F6E7] text-[#2E9E3E]">
             <CheckCircle2 className="h-10 w-10" strokeWidth={2} />
           </div>
-          <h2 className="mt-6 font-[family-name:var(--font-display,serif)] text-[32px] font-semibold text-[#1F140E]">
+          <h2 className="mt-6 font-serif text-[32px] font-semibold text-[#1F140E]">
             Password Reset Complete
           </h2>
           <p className="mt-3 text-[16px] leading-7 text-[#6B625B]">
@@ -229,9 +217,9 @@ function ResetPasswordForm() {
           </p>
 
           <div className="mt-8">
-            <Link href="/login" className={primaryButtonClass}>
+            <CommonButton to="/" size="lg" fullWidth>
               Sign In Now
-            </Link>
+            </CommonButton>
           </div>
         </div>
       )}
@@ -242,9 +230,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white text-[#1F140E] antialiased">
-      {/* ───────── Left: form ───────── */}
       <div className="relative w-full lg:w-[49%] flex flex-col min-h-screen">
-        {/* Brand */}
         <div className="px-6 sm:px-10 lg:px-20 pt-8">
           <Logo />
         </div>
@@ -261,11 +247,10 @@ export default function ResetPasswordPage() {
           </React.Suspense>
         </div>
 
-        {/* Footer */}
         <p className="pb-10 text-center text-[15px] text-[#6B625B]">
           Remember your password?{" "}
           <Link
-            href="/login"
+            href="/"
             className="font-medium text-[#1F140E] underline underline-offset-2 hover:text-[#7A3B18] transition-colors"
           >
             Sign In
@@ -273,7 +258,6 @@ export default function ResetPasswordPage() {
         </p>
       </div>
 
-      {/* ───────── Right: artwork + glass card ───────── */}
       <AuthShowcase />
     </div>
   );

@@ -1,7 +1,6 @@
 export const GUEST_TYPES = ['VIP', 'General', 'Family & Friends', 'Speakers & Partners'] as const;
 export type GuestType = (typeof GUEST_TYPES)[number];
 
-/** A Preserved table can seat every guest type. Every other table seats only its own type. */
 export const TABLE_TYPES = [...GUEST_TYPES, 'Preserved'] as const;
 export type TableType = (typeof TABLE_TYPES)[number];
 

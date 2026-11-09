@@ -37,12 +37,10 @@ export function OrganizerSettingsForm() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
 
-  // Profile State
   const [name, setName] = React.useState('Folashade Adeyemi');
   const [email, setEmail] = React.useState('folashade@mcenies.com');
   const [phone, setPhone] = React.useState('+234 803 456 7890');
 
-  // Notifications State
   const [notifications, setNotifications] = React.useState({
     rsvpUpdates: true,
     guestReminders: true,
@@ -50,7 +48,6 @@ export function OrganizerSettingsForm() {
     billingNotifications: false,
   });
 
-  // Security State
   const [twoFactor, setTwoFactor] = React.useState(true);
 
   const handleSaveProfile = (e: React.FormEvent) => {
@@ -69,7 +66,6 @@ export function OrganizerSettingsForm() {
 
   return (
     <div className="space-y-8 max-w-4xl">
-      {/* Toast Confirmation */}
       {isSaved && (
         <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center gap-2 text-xs animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -79,7 +75,6 @@ export function OrganizerSettingsForm() {
         </div>
       )}
 
-      {/* Tabs navigation matching settings-page.png */}
       <div className="flex items-center gap-2 border-b border-border pb-3">
         <button
           onClick={() => setActiveTab('profile')}
@@ -113,7 +108,6 @@ export function OrganizerSettingsForm() {
         </button>
       </div>
 
-      {/* Section 1: Personal Information matching settings-page.png */}
       {(activeTab === 'profile' || true) && (
         <Card className="border-border shadow-xs bg-card rounded-2xl">
           <CardHeader className="p-6 border-b border-border">
@@ -126,7 +120,6 @@ export function OrganizerSettingsForm() {
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <form onSubmit={handleSaveProfile} className="space-y-6">
-              {/* Profile Photo */}
               <div className="flex items-center gap-4">
                 <Avatar className="w-16 h-16 border-2 border-[#6E3B1C]/20 shadow-xs">
                   <AvatarImage
@@ -189,7 +182,6 @@ export function OrganizerSettingsForm() {
         </Card>
       )}
 
-      {/* Section 2: Notification Preferences matching settings-page.png */}
       {(activeTab === 'notifications' || true) && (
         <Card className="border-border shadow-xs bg-card rounded-2xl">
           <CardHeader className="p-6 border-b border-border">
@@ -202,7 +194,6 @@ export function OrganizerSettingsForm() {
           </CardHeader>
           <CardContent className="p-6 space-y-5">
             <form onSubmit={handleSaveNotifications} className="space-y-5">
-              {/* RSVP Updates */}
               <div className="flex items-center justify-between py-2 border-b border-border/60">
                 <div className="space-y-0.5">
                   <p className="text-xs font-semibold text-foreground">RSVP Updates</p>
@@ -218,7 +209,6 @@ export function OrganizerSettingsForm() {
                 />
               </div>
 
-              {/* Guest Reminders */}
               <div className="flex items-center justify-between py-2 border-b border-border/60">
                 <div className="space-y-0.5">
                   <p className="text-xs font-semibold text-foreground">Guest Reminders</p>
@@ -234,7 +224,6 @@ export function OrganizerSettingsForm() {
                 />
               </div>
 
-              {/* Event Updates */}
               <div className="flex items-center justify-between py-2 border-b border-border/60">
                 <div className="space-y-0.5">
                   <p className="text-xs font-semibold text-foreground">Event Updates</p>
@@ -250,7 +239,6 @@ export function OrganizerSettingsForm() {
                 />
               </div>
 
-              {/* Billing Notifications */}
               <div className="flex items-center justify-between py-2">
                 <div className="space-y-0.5">
                   <p className="text-xs font-semibold text-foreground">Billing Notifications</p>
@@ -279,7 +267,6 @@ export function OrganizerSettingsForm() {
         </Card>
       )}
 
-      {/* Section 3: Account Security matching settings-page.png */}
       {(activeTab === 'security' || true) && (
         <Card className="border-border shadow-xs bg-card rounded-2xl">
           <CardHeader className="p-6 border-b border-border">
@@ -291,7 +278,6 @@ export function OrganizerSettingsForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            {/* Password Item */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/60">
               <div>
                 <p className="text-xs font-semibold text-foreground">Password</p>
@@ -307,7 +293,6 @@ export function OrganizerSettingsForm() {
               </Button>
             </div>
 
-            {/* Email Verification */}
             <div className="flex items-center justify-between pb-4 border-b border-border/60">
               <div>
                 <p className="text-xs font-semibold text-foreground">Email Verification</p>
@@ -324,7 +309,6 @@ export function OrganizerSettingsForm() {
               </Badge>
             </div>
 
-            {/* 2FA */}
             <div className="flex items-center justify-between pb-6 border-b border-border/60">
               <div>
                 <p className="text-xs font-semibold text-foreground">Two-Factor Authentication (2FA)</p>
@@ -335,7 +319,6 @@ export function OrganizerSettingsForm() {
               <Switch checked={twoFactor} onCheckedChange={setTwoFactor} />
             </div>
 
-            {/* Danger Zone: Delete Account matching settings-page.png */}
             <div className="p-5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 space-y-3">
               <div>
                 <h4 className="text-xs font-bold text-rose-800 dark:text-rose-300">
@@ -360,7 +343,6 @@ export function OrganizerSettingsForm() {
         </Card>
       )}
 
-      {/* Change Password Modal */}
       <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -410,7 +392,6 @@ export function OrganizerSettingsForm() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Account Modal */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

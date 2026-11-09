@@ -3,9 +3,11 @@
 import { AgencyOnboarding } from "@/components/auth/AgencyOnboarding";
 import { AuthShowcase } from "@/components/auth/AuthShowcase";
 import { IndividualOnboarding } from "@/components/auth/IndividualOnboarding";
-import { Logo } from "@/components/auth/onboarding-ui";
+import { Logo, inputClass } from "@/components/auth/onboarding";
 import { VenueOnboarding } from "@/components/auth/VenueOnboarding";
-import { ArrowRight, Check, Eye, EyeOff } from "lucide-react";
+import CommonButton from "@/components/common/CommonButton";
+import { CommonHeader } from "@/components/shared/CommonHeader";
+import { Check, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -31,8 +33,6 @@ interface UniversalSignUpProps {
   initialRole?: OrganizerSignUpRole;
 }
 
-// Emoji stand in for the illustrated icons in the design.
-// Swap each for <Image src="/images/role-*.png" /> if you export them.
 const ROLE_OPTIONS: {
   role: OrganizerSignUpRole;
   label: string;
@@ -54,18 +54,6 @@ const ROLE_OPTIONS: {
     icon: "🏛️",
   },
 ];
-
-const fieldClass =
-  "w-full h-12 px-3 text-[15px] rounded-xl border border-[#E8E2D8] bg-[#FAF8F4] text-[#1F140E] " +
-  "placeholder:text-[#B3AAA1] outline-none transition focus:bg-white focus:border-[#703816] focus:ring-2 focus:ring-[#703816]/15";
-
-const labelClass = "block mb-2 text-[15px] text-[#1F140E]";
-
-const primaryButtonClass =
-  "w-full h-[52px] px-5 rounded-xl bg-[#7A3B18] hover:bg-[#632F13] text-white text-base font-medium " +
-  "shadow-[0_2px_0_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.12)] transition-colors cursor-pointer " +
-  "disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 " +
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A3B18]";
 
 export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
   const searchParams = useSearchParams();
@@ -162,27 +150,26 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
 
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white text-[#1F140E] antialiased">
-      {/* ───────── Left: form ───────── */}
       <div className="relative w-full lg:w-[49%] flex flex-col min-h-screen">
-        {/* Brand */}
         <div className="px-6 sm:px-10 lg:px-20 pt-8">
           <Logo />
         </div>
 
         <div className="flex-1 flex items-center justify-center px-6 py-10">
           <div className="w-full max-w-[525px]">
-            <div className="text-center">
-              <h1 className="font-[family-name:var(--font-display,serif)] text-[40px] sm:text-[48px] font-semibold leading-[1.15] tracking-tight">
-                Create Your
-                <br />
-                McEniesVite Account
-              </h1>
-              <p className="mt-4 text-base sm:text-[17px] leading-7 text-[#6B625B]">
-                Bring your event and guest experience together in one place.
-              </p>
-            </div>
+            <CommonHeader
+              variant="hero"
+              as="h1"
+              title={
+                <>
+                  Create Your
+                  <br />
+                  McEniesVite Account
+                </>
+              }
+              subtitle="Bring your event and guest experience together in one place."
+            />
 
-            {/* ── Step 1: choose role ── */}
             {step === "role" && (
               <div className="mt-10">
                 <div
@@ -223,22 +210,23 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                   })}
                 </div>
 
-                <button
+                <CommonButton
                   type="button"
+                  size="lg"
+                  fullWidth
+                  className="mt-9"
+                  showDefaultIcon
                   onClick={() => setStep("details")}
-                  className={`${primaryButtonClass} mt-9 group`}
                 >
-                  <span>Continue</span>
-                  <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-                </button>
+                  Continue
+                </CommonButton>
               </div>
             )}
 
-            {/* ── Step 2: details ── */}
             {step === "details" && (
               <form onSubmit={handleSubmit(onDetailsSubmit)} className="mt-10 space-y-5">
                 <div>
-                  <label htmlFor="name" className={labelClass}>
+                  <label htmlFor="name" className={inputClass.label}>
                     {nameLabel} <span aria-hidden="true">*</span>
                   </label>
                   <input
@@ -247,17 +235,15 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                     autoComplete="name"
                     {...register("fullName")}
                     placeholder="Enter your full name"
-                    className={`${fieldClass} ${errors.fullName ? "border-red-500 focus:border-red-500" : ""}`}
+                    className={`${inputClass.input} ${errors.fullName ? "border-red-500 focus:border-red-500" : ""}`}
                   />
                   {errors.fullName && (
-                    <p className="mt-1 text-xs text-red-600 font-medium">
-                      {errors.fullName.message}
-                    </p>
+                    <p className={inputClass.error}>{errors.fullName.message}</p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="email" className={labelClass}>
+                  <label htmlFor="email" className={inputClass.label}>
                     Email Address <span aria-hidden="true">*</span>
                   </label>
                   <input
@@ -266,27 +252,24 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                     autoComplete="email"
                     {...register("email")}
                     placeholder="Enter your email address"
-                    className={`${fieldClass} ${errors.email ? "border-red-500 focus:border-red-500" : ""}`}
+                    className={`${inputClass.input} ${errors.email ? "border-red-500 focus:border-red-500" : ""}`}
                   />
                   {errors.email && (
-                    <p className="mt-1 text-xs text-red-600 font-medium">
-                      {errors.email.message}
-                    </p>
+                    <p className={inputClass.error}>{errors.email.message}</p>
                   )}
                 </div>
 
-                {/* Phone: joined country-code segment + number */}
                 <div>
-                  <label htmlFor="phone" className={labelClass}>
+                  <label htmlFor="phone" className={inputClass.label}>
                     WhatsApp Phone Number <span aria-hidden="true">*</span>
                   </label>
                   <div
-                    className={`flex h-12 rounded-xl border ${
-                      errors.phoneNumber ? "border-red-500" : "border-[#E8E2D8]"
-                    } bg-[#FAF8F4] overflow-hidden focus-within:border-[#703816] focus-within:ring-2 focus-within:ring-[#703816]/15 transition`}
+                    className={`flex h-11 sm:h-12 rounded-[12px] border ${
+                      errors.phoneNumber ? "border-red-500" : "border-[#E8E4E3]"
+                    } bg-[#FDFBF7] overflow-hidden focus-within:border-[#703816] focus-within:ring-2 focus-within:ring-[#703816]/15 transition`}
                   >
-                    <div className="relative shrink-0 bg-[#F3F0EB] border-r border-[#E8E2D8]">
-                      <span className="flex h-full items-center gap-1.5 px-3.5 text-[15px] pointer-events-none">
+                    <div className="relative shrink-0 bg-[#F3F0EB] border-r border-[#E8E4E3]">
+                      <span className="flex h-full items-center gap-1.5 px-3 sm:px-3.5 text-sm sm:text-base pointer-events-none">
                         <span aria-hidden="true">
                           {countryFlag(selectedCountry.iso)}
                         </span>
@@ -312,18 +295,16 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                       autoComplete="tel-national"
                       {...register("phoneNumber")}
                       placeholder="Write your phone number"
-                      className="flex-1 min-w-0 px-3 text-[15px] bg-transparent outline-none placeholder:text-[#B3AAA1]"
+                      className="flex-1 min-w-0 px-3 text-sm sm:text-base bg-transparent outline-none placeholder:text-[#C2BCB1]"
                     />
                   </div>
                   {errors.phoneNumber && (
-                    <p className="mt-1 text-xs text-red-600 font-medium">
-                      {errors.phoneNumber.message}
-                    </p>
+                    <p className={inputClass.error}>{errors.phoneNumber.message}</p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="password" className={labelClass}>
+                  <label htmlFor="password" className={inputClass.label}>
                     Create Password<span aria-hidden="true">*</span>
                   </label>
                   <div className="relative">
@@ -333,7 +314,7 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                       autoComplete="new-password"
                       {...register("password")}
                       placeholder="********"
-                      className={`${fieldClass} pr-12 ${errors.password ? "border-red-500 focus:border-red-500" : ""}`}
+                      className={`${inputClass.input} pr-12 ${errors.password ? "border-red-500 focus:border-red-500" : ""}`}
                     />
                     <button
                       type="button"
@@ -354,14 +335,12 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="mt-1 text-xs text-red-600 font-medium">
-                      {errors.password.message}
-                    </p>
+                    <p className={inputClass.error}>{errors.password.message}</p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="confirm" className={labelClass}>
+                  <label htmlFor="confirm" className={inputClass.label}>
                     Confirm Password<span aria-hidden="true">*</span>
                   </label>
                   <div className="relative">
@@ -371,7 +350,7 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                       autoComplete="new-password"
                       {...register("confirmPassword")}
                       placeholder="********"
-                      className={`${fieldClass} pr-12 ${errors.confirmPassword ? "border-red-500 focus:border-red-500" : ""}`}
+                      className={`${inputClass.input} pr-12 ${errors.confirmPassword ? "border-red-500 focus:border-red-500" : ""}`}
                     />
                     <button
                       type="button"
@@ -392,42 +371,40 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
                     </button>
                   </div>
                   {errors.confirmPassword && (
-                    <p className="mt-1 text-xs text-red-600 font-medium">
+                    <p className={inputClass.error}>
                       {errors.confirmPassword.message}
                     </p>
                   )}
                 </div>
 
-                <button
+                <CommonButton
                   type="submit"
+                  size="lg"
+                  fullWidth
+                  className="mt-4"
+                  showDefaultIcon={!isSubmitting}
                   disabled={isSubmitting}
-                  className={`${primaryButtonClass} mt-4 group`}
+                  isLoading={isSubmitting}
+                  loadingText="Validating details..."
                 >
-                  <span>
-                    {isSubmitting
-                      ? "Validating details..."
-                      : "Continue to Adaptive Profile Setup"}
-                  </span>
-                  {!isSubmitting && (
-                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-                  )}
-                </button>
+                  Continue to Adaptive Profile Setup
+                </CommonButton>
 
                 <div className="text-center">
-                  <button
+                  <CommonButton
                     type="button"
+                    variant="outline"
+                    showLeftIcon
                     onClick={() => setStep("role")}
-                    className="text-[13px] text-[#6B625B] hover:text-[#703816] transition-colors"
                   >
                     Back to account type
-                  </button>
+                  </CommonButton>
                 </div>
               </form>
             )}
           </div>
         </div>
 
-        {/* Footer */}
         <p className="pb-10 text-center text-[15px] text-[#6B625B]">
           Already have an account?{" "}
           <Link
@@ -439,7 +416,6 @@ export function UniversalSignUp({ initialRole }: UniversalSignUpProps) {
         </p>
       </div>
 
-      {/* ───────── Right: artwork + glass card ───────── */}
       <AuthShowcase />
     </div>
   );

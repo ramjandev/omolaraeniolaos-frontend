@@ -8,7 +8,6 @@ export interface NavItem {
   exact?: boolean;
   section?: string;
   children?: { title: string; href: string }[];
-  /** Children are filled with the organizer's own events at runtime. */
   eventChildren?: boolean;
 }
 

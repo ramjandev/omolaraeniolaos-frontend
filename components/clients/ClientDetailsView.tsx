@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Calendar, Plus } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { Button } from '@/components/ui/button';
 import {
   getAgencyClient,
@@ -56,10 +57,13 @@ export function ClientDetailsView({ clientId }: { clientId: string }) {
           <span className="mx-1.5 text-[#C4A574]">/</span>
           <span className="text-[#C4A574]">Client Details</span>
         </p>
-        <h1 className="mt-2 font-serif text-4xl font-medium text-[#1F140E]">Client Details</h1>
-        <p className="mt-1 text-sm text-[#736B66]">
-          A complete view of the relationship and event history.
-        </p>
+        <CommonHeader
+          className="mt-2"
+          variant="section"
+          as="h1"
+          title="Client Details"
+          subtitle="A complete view of the relationship and event history."
+        />
       </div>
 
       <div className="rounded-2xl border border-[#EBE3D9] bg-white p-5">

@@ -36,7 +36,6 @@ export default function GateStaffHistoryPage() {
     <GateMobileShell showHeader={false} activeTab="history">
       <div className="space-y-4 pt-1">
         
-        {/* Top Header matching mockup 09 */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -55,7 +54,6 @@ export default function GateStaffHistoryPage() {
           View guests who have entered through your assigned gate.
         </p>
 
-        {/* 2 Stat Cards */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl p-4 border border-[#EAE5DC] shadow-[0_2px_6px_rgba(0,0,0,0.02)]">
             <span className="text-xs text-[#80756C] block font-normal mb-2">
@@ -76,7 +74,6 @@ export default function GateStaffHistoryPage() {
           </div>
         </div>
 
-        {/* Search & Filter Bar */}
         <div className="flex items-center gap-2 pt-1">
           <div className="flex-1 bg-white border border-[#EAE5DC] rounded-2xl px-4 py-3 text-sm flex items-center">
             <input
@@ -95,7 +92,6 @@ export default function GateStaffHistoryPage() {
           </button>
         </div>
 
-        {/* History List */}
         <div className="space-y-3 pt-1">
           {filtered.length === 0 && (
             <p className="text-xs text-[#70665F]">No check-ins at your gate yet.</p>

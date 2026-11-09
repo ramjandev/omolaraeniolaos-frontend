@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { eventsPath, ORGANIZERS, type OrganizerKind } from '@/lib/organizer';
 import { useGetEventsQuery } from '@/store/Event/eventAPI';
 import type { EventItem } from '@/store/Event/types/eventTypes';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { FilterPills } from '@/components/shared/FilterPills';
 import { SearchField } from '@/components/shared/SearchField';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -65,14 +66,12 @@ export function OrganizerEventsList({ organizer }: { organizer: OrganizerKind })
   return (
     <div className="w-full space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="font-serif text-4xl font-normal tracking-tight text-[#1F140E] dark:text-[#FBF8F5]">
-            Events
-          </h1>
-          <p className="text-sm text-[#736B66] dark:text-muted-foreground">
-            View and organize your event list and draft templates
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Events"
+          subtitle="View and organize your event list and draft templates"
+        />
         <Link
           href={createHref}
           className={cn(

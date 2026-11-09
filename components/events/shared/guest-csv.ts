@@ -64,7 +64,6 @@ function matchOption<T extends string>(options: readonly T[], value: string): T 
   return options.find((option) => option.toLowerCase() === needle);
 }
 
-/** Maps spreadsheet group labels onto the groups used by the guest form. */
 export function normalizeGuestGroup(value?: string): string {
   const label = (value ?? '').trim().toLowerCase();
   if (!label) return 'General';
@@ -83,7 +82,6 @@ export function normalizeRsvpLabel(value?: string): 'Accepted' | 'Declined' | 'P
   return 'Not Sent';
 }
 
-/** Parses a guest list CSV. The first row must be a header with at least name and phone columns. */
 export function parseGuestCsv(text: string): {
   guests: AddGuestPayload[];
   skipped: number;

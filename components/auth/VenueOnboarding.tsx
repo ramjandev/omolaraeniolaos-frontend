@@ -7,14 +7,12 @@ import {
   Modal,
   Radio,
   SuccessBody,
-  brownButton,
-  darkButton,
-  fieldClass,
-  labelClass,
+  inputClass,
   naira,
-  outlineButton,
-  titleClass,
-} from "@/components/auth/onboarding-ui";
+} from "@/components/auth/onboarding";
+import CommonButton from "@/components/common/CommonButton";
+import CommonSelect from "@/components/common/CommonSelect";
+import { CommonHeader } from "@/components/shared/CommonHeader";
 import { SignupPlanGrid } from "@/components/plans/SignupPlanGrid";
 import { useGetPlansQuery } from "@/store/Plan/planApi";
 import {
@@ -24,9 +22,7 @@ import {
   supportsAnnualBilling,
 } from "@/lib/planPricing";
 import {
-  ArrowLeft,
   ArrowRight,
-  ChevronDown,
   CreditCard,
   Plus,
   Trash2,
@@ -45,7 +41,6 @@ import {
 } from "@/store/Auth/types/authTypes";
 import { toast } from "react-toastify";
 
-/* ───────────────────────── Config ───────────────────────── */
 
 const DASHBOARD_URL = "/organizer/venue";
 
@@ -113,7 +108,6 @@ interface TeamMember {
 
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-/* ───────────────────────── Small pieces ───────────────────────── */
 
 function StepBadge({ n }: { n: number }) {
   return (
@@ -132,13 +126,9 @@ function StepFooter({
 }) {
   return (
     <div className="mt-8 flex items-center justify-between border-t border-[#EAE4DA] pt-5">
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-2 text-[17px] font-medium text-[#3A2C25] hover:text-[#7A3B18] transition-colors"
-      >
-        <ArrowLeft className="h-5 w-5" /> Back
-      </button>
+      <CommonButton type="button" variant="outline" showLeftIcon onClick={onBack}>
+        Back
+      </CommonButton>
       {children}
     </div>
   );
@@ -148,63 +138,15 @@ function ContinueButton({
   children = "Continue",
   type = "submit",
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type={type}
-      className={`${brownButton} h-[52px] px-7 text-[18px] group`}
-      {...rest}
-    >
-      {children}{" "}
-      <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-    </button>
-  );
-}
-
-function Select({
-  id,
-  value,
-  onChange,
-  options,
-  placeholder,
-  required,
-}: {
-  id: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: readonly string[];
-  placeholder?: string;
-  required?: boolean;
+}: Omit<React.ComponentProps<typeof CommonButton>, "children"> & {
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="relative">
-      <select
-        id={id}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${fieldClass} appearance-none pr-10 cursor-pointer ${value ? "" : "text-[#B3AAA1]"}`}
-      >
-        {placeholder && (
-          <option value="" disabled>
-            {placeholder}
-          </option>
-        )}
-        {options.map((o) => (
-          <option key={o} value={o} className="text-[#1F140E]">
-            {o}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8C7A6B]"
-        strokeWidth={1.6}
-      />
-    </div>
+    <CommonButton type={type} size="lg" showDefaultIcon {...rest}>
+      {children}
+    </CommonButton>
   );
 }
-
-/* ───────────────────────── Main component ───────────────────────── */
 
 type Step = "business" | "venue" | "spaces" | "team" | "plan" | "checkout";
 type ModalState = null | "card" | "bank" | "created" | "activated";
@@ -221,21 +163,18 @@ export function VenueOnboarding({
   const [registerVenue, { isLoading: isRegistering }] = useRegisterVenueMutation();
   const [step, setStep] = React.useState<Step>("business");
 
-  // Step 1: Business Information
   const [businessName, setBusinessName] = React.useState("Lumina Event Studio");
   const [logo, setLogo] = React.useState<string | null>(null);
   const [logoError, setLogoError] = React.useState<string | null>(null);
   const [businessType, setBusinessType] = React.useState("Event Hall Operator");
   const fileRef = React.useRef<HTMLInputElement>(null);
 
-  // Step 2: Create First Venue
   const [venueName, setVenueName] = React.useState("");
   const [venueType, setVenueType] = React.useState("Ballroom");
   const [totalCapacity, setTotalCapacity] = React.useState("");
   const [venueAddress, setVenueAddress] = React.useState("");
   const [description, setDescription] = React.useState("");
 
-  // Step 3: Add Spaces & Halls
   const [spaces, setSpaces] = React.useState<SpaceItem[]>([
     {
       id: "1",
@@ -246,7 +185,6 @@ export function VenueOnboarding({
     },
   ]);
 
-  // Step 4: Build your team
   const [invites, setInvites] = React.useState<TeamMember[]>([
     { email: "alex@luminaevents.co", role: "Event Planner" },
     { email: "marcus@luminaevents.co", role: "Coordinator" },
@@ -255,7 +193,6 @@ export function VenueOnboarding({
   const [inviteRole, setInviteRole] = React.useState<TeamRole>("Event Planner");
   const [inviteError, setInviteError] = React.useState<string | null>(null);
 
-  // Step 5: Choose A Plan + Checkout
   const {
     data: plansResponse,
     isLoading: plansLoading,
@@ -347,7 +284,6 @@ export function VenueOnboarding({
     }
   };
 
-  /* Logo helpers */
   const onLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -381,7 +317,6 @@ export function VenueOnboarding({
     setLogo(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
   };
 
-  /* Spaces helpers */
   const addSpace = () => {
     const nextId = String(Date.now());
     setSpaces((prev) => [
@@ -407,7 +342,6 @@ export function VenueOnboarding({
     );
   };
 
-  /* Team helpers */
   const addInvite = (e: React.FormEvent) => {
     e.preventDefault();
     const email = inviteEmail.trim().toLowerCase();
@@ -423,7 +357,6 @@ export function VenueOnboarding({
     setInvites((list) => list.filter((i) => i.email !== email));
   };
 
-  /* Payment helpers */
   const handleSkipToDashboard = async () => {
     setBusy(true);
     const completed = await performRegistration({ skipPayment: true });
@@ -459,7 +392,6 @@ export function VenueOnboarding({
 
   return (
     <div className="min-h-screen w-full bg-[#FBFAF6] text-[#1F140E] antialiased">
-      {/* ───── Header ───── */}
       <header className="flex items-start justify-between px-6 pt-8 sm:px-10 lg:px-20">
         <Logo />
         {showSkipToDashboard && (
@@ -474,12 +406,10 @@ export function VenueOnboarding({
         )}
       </header>
 
-      {/* ───── Main Wizard Content ───── */}
       <main className="px-4 py-8 sm:py-12">
         <section
           className={`w-full ${cardWidth} mx-auto rounded-[32px] border border-[#EEE9E0] bg-[#FDFCFA] p-6 sm:p-10 shadow-sm`}
         >
-          {/* ═════════ Step 1: Business Information ═════════ */}
           {step === "business" && (
             <form
               onSubmit={(e) => {
@@ -490,15 +420,17 @@ export function VenueOnboarding({
             >
               <div>
                 <StepBadge n={1} />
-                <h1 className={`${titleClass} mt-4`}>Business Information</h1>
-                <p className="mt-1 text-[16px] text-[#6B625B]">
-                  Tell us about your business or hospitality group for venue
-                  management records.
-                </p>
+                <CommonHeader
+                  className="mt-4"
+                  variant="section"
+                  as="h1"
+                  title="Business Information"
+                  subtitle="Tell us about your business or hospitality group for venue management records."
+                />
               </div>
 
               <div>
-                <label htmlFor="businessName" className={labelClass}>
+                <label htmlFor="businessName" className={inputClass.label}>
                   Owner/Business Name <span className="text-[#7A3B18]">*</span>
                 </label>
                 <input
@@ -507,12 +439,12 @@ export function VenueOnboarding({
                   placeholder="Lumina Event Studio"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </div>
 
               <div>
-                <label className={labelClass}>Logo (Optional)</label>
+                <label className={inputClass.label}>Logo (Optional)</label>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-5">
                   <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[#E8E2D8] bg-[#FAF8F4] overflow-hidden text-[#B3AAA1]">
                     {logo ? (
@@ -564,15 +496,18 @@ export function VenueOnboarding({
               </div>
 
               <div>
-                <label htmlFor="businessType" className={labelClass}>
+                <label htmlFor="businessType" className={inputClass.label}>
                   Business Type <span className="text-[#7A3B18]">*</span>
                 </label>
-                <Select
+                <CommonSelect
                   id="businessType"
-                  required
-                  value={businessType}
-                  onChange={setBusinessType}
-                  options={BUSINESS_TYPES}
+                  value={businessType || undefined}
+                  placeholder="Select business type"
+                  item={BUSINESS_TYPES.map((type) => ({
+                    label: type,
+                    value: type,
+                  }))}
+                  onValueChange={setBusinessType}
                 />
               </div>
 
@@ -582,7 +517,6 @@ export function VenueOnboarding({
             </form>
           )}
 
-          {/* ═════════ Step 2: Create First Venue ═════════ */}
           {step === "venue" && (
             <form
               onSubmit={(e) => {
@@ -594,11 +528,13 @@ export function VenueOnboarding({
               <div className="flex items-start justify-between">
                 <div>
                   <StepBadge n={2} />
-                  <h1 className={`${titleClass} mt-4`}>Create First Venue</h1>
-                  <p className="mt-1 text-[16px] text-[#6B625B]">
-                    Add primary venue details. You can create additional venues
-                    later in your portal.
-                  </p>
+                  <CommonHeader
+                    className="mt-4"
+                    variant="section"
+                    as="h1"
+                    title="Create First Venue"
+                    subtitle="Add primary venue details. You can create additional venues later in your portal."
+                  />
                 </div>
                 <button
                   type="button"
@@ -610,7 +546,7 @@ export function VenueOnboarding({
               </div>
 
               <div>
-                <label htmlFor="venueName" className={labelClass}>
+                <label htmlFor="venueName" className={inputClass.label}>
                   Venue Name <span className="text-[#7A3B18]">*</span>
                 </label>
                 <input
@@ -619,25 +555,28 @@ export function VenueOnboarding({
                   placeholder="Enter venue name"
                   value={venueName}
                   onChange={(e) => setVenueName(e.target.value)}
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="venueType" className={labelClass}>
+                  <label htmlFor="venueType" className={inputClass.label}>
                     Venue Type <span className="text-[#7A3B18]">*</span>
                   </label>
-                  <Select
+                  <CommonSelect
                     id="venueType"
-                    required
-                    value={venueType}
-                    onChange={setVenueType}
-                    options={VENUE_TYPES}
+                    value={venueType || undefined}
+                    placeholder="Select venue type"
+                    item={VENUE_TYPES.map((type) => ({
+                      label: type,
+                      value: type,
+                    }))}
+                    onValueChange={setVenueType}
                   />
                 </div>
                 <div>
-                  <label htmlFor="totalCapacity" className={labelClass}>
+                  <label htmlFor="totalCapacity" className={inputClass.label}>
                     Total Capacity(guests)*
                   </label>
                   <input
@@ -648,13 +587,13 @@ export function VenueOnboarding({
                     min={1}
                     value={totalCapacity}
                     onChange={(e) => setTotalCapacity(e.target.value)}
-                    className={fieldClass}
+                    className={inputClass.input}
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="venueAddress" className={labelClass}>
+                <label htmlFor="venueAddress" className={inputClass.label}>
                   Full Address <span className="text-[#7A3B18]">*</span>
                 </label>
                 <input
@@ -663,12 +602,12 @@ export function VenueOnboarding({
                   placeholder="Enter venue address"
                   value={venueAddress}
                   onChange={(e) => setVenueAddress(e.target.value)}
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </div>
 
               <div>
-                <label htmlFor="description" className={labelClass}>
+                <label htmlFor="description" className={inputClass.label}>
                   Description <span className="text-[#7A3B18]">*</span>
                 </label>
                 <textarea
@@ -678,7 +617,7 @@ export function VenueOnboarding({
                   placeholder="write something about your venue"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-xl border border-[#E8E2D8] bg-[#FAF8F4] p-3 text-[15px] text-[#1F140E] placeholder:text-[#B3AAA1] outline-none transition focus:border-[#703816] focus:bg-white focus:ring-2 focus:ring-[#703816]/15"
+                  className={inputClass.textarea}
                 />
               </div>
 
@@ -688,7 +627,6 @@ export function VenueOnboarding({
             </form>
           )}
 
-          {/* ═════════ Step 3: Add Spaces & Halls ═════════ */}
           {step === "spaces" && (
             <form
               onSubmit={(e) => {
@@ -700,11 +638,13 @@ export function VenueOnboarding({
               <div className="flex items-start justify-between">
                 <div>
                   <StepBadge n={3} />
-                  <h1 className={`${titleClass} mt-4`}>Add Spaces & Halls</h1>
-                  <p className="mt-1 text-[16px] text-[#6B625B]">
-                    Divide your venue into specialized spaces, halls, or event
-                    suites.
-                  </p>
+                  <CommonHeader
+                    className="mt-4"
+                    variant="section"
+                    as="h1"
+                    title="Add Spaces & Halls"
+                    subtitle="Divide your venue into specialized spaces, halls, or event suites."
+                  />
                 </div>
                 <div className="flex flex-col items-end gap-3">
                   <button
@@ -714,13 +654,15 @@ export function VenueOnboarding({
                   >
                     Skip for now
                   </button>
-                  <button
+                  <CommonButton
                     type="button"
+                    variant="black"
+                    size="md"
+                    leftIcon={<Plus />}
                     onClick={addSpace}
-                    className={`${darkButton} h-11 px-4 text-[15px] flex items-center gap-2`}
                   >
-                    <Plus className="h-4 w-4" /> Add Space
-                  </button>
+                    Add Space
+                  </CommonButton>
                 </div>
               </div>
 
@@ -748,18 +690,18 @@ export function VenueOnboarding({
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
-                        <label className={labelClass}>Space Name</label>
+                        <label className={inputClass.label}>Space Name</label>
                         <input
                           placeholder="enter space name"
                           value={sp.name}
                           onChange={(e) =>
                             updateSpace(sp.id, { name: e.target.value })
                           }
-                          className={fieldClass}
+                          className={inputClass.input}
                         />
                       </div>
                       <div>
-                        <label className={labelClass}>Max Capacity</label>
+                        <label className={inputClass.label}>Max Capacity</label>
                         <input
                           placeholder="00"
                           type="number"
@@ -768,20 +710,26 @@ export function VenueOnboarding({
                           onChange={(e) =>
                             updateSpace(sp.id, { capacity: e.target.value })
                           }
-                          className={fieldClass}
+                          className={inputClass.input}
                         />
                       </div>
                       <div>
-                        <label className={labelClass}>Space Type</label>
-                        <Select
+                        <label className={inputClass.label}>Space Type</label>
+                        <CommonSelect
                           id={`sp-type-${sp.id}`}
-                          value={sp.type}
-                          onChange={(v) => updateSpace(sp.id, { type: v })}
-                          options={SPACE_TYPES}
+                          value={sp.type || undefined}
+                          placeholder="Select space type"
+                          item={SPACE_TYPES.map((type) => ({
+                            label: type,
+                            value: type,
+                          }))}
+                          onValueChange={(value) =>
+                            updateSpace(sp.id, { type: value })
+                          }
                         />
                       </div>
                       <div>
-                        <label className={labelClass}>Operating Hours</label>
+                        <label className={inputClass.label}>Operating Hours</label>
                         <input
                           placeholder="09:00-01:00"
                           value={sp.operatingHours}
@@ -790,7 +738,7 @@ export function VenueOnboarding({
                               operatingHours: e.target.value,
                             })
                           }
-                          className={fieldClass}
+                          className={inputClass.input}
                         />
                       </div>
                     </div>
@@ -804,19 +752,19 @@ export function VenueOnboarding({
             </form>
           )}
 
-          {/* ═════════ Step 4: Build your team ═════════ */}
           {step === "team" && (
             <div className="space-y-6">
               <div>
                 <StepBadge n={4} />
-                <h1 className={`${titleClass} mt-4`}>Build your team</h1>
-                <p className="mt-1 text-[16px] text-[#6B625B]">
-                  Invite team members who will help manage clients, venues, and
-                  event execution.
-                </p>
+                <CommonHeader
+                  className="mt-4"
+                  variant="section"
+                  as="h1"
+                  title="Build your team"
+                  subtitle="Invite team members who will help manage clients, venues, and event execution."
+                />
               </div>
 
-              {/* Invite Card */}
               <form
                 onSubmit={addInvite}
                 className="rounded-2xl border border-[#EEE9E0] bg-[#FAF8F4] p-5 space-y-4"
@@ -833,29 +781,28 @@ export function VenueOnboarding({
                       setInviteEmail(e.target.value);
                       if (inviteError) setInviteError(null);
                     }}
-                    className={fieldClass}
+                    className={inputClass.input}
                   />
-                  <Select
+                  <CommonSelect
                     id="teamRole"
                     value={inviteRole}
-                    onChange={(v) => setInviteRole(v as TeamRole)}
-                    options={TEAM_ROLES}
+                    item={TEAM_ROLES.map((role) => ({
+                      label: role,
+                      value: role,
+                    }))}
+                    onValueChange={(value) => setInviteRole(value as TeamRole)}
                   />
                 </div>
                 {inviteError && (
                   <p className="text-[13px] text-[#B02A37]">{inviteError}</p>
                 )}
                 <div>
-                  <button
-                    type="submit"
-                    className={`${darkButton} h-11 px-5 text-[15px] flex items-center gap-2`}
-                  >
-                    <Plus className="h-4 w-4" /> Add Member
-                  </button>
+                  <CommonButton type="submit" variant="black" size="md" leftIcon={<Plus />}>
+                    Add Member
+                  </CommonButton>
                 </div>
               </form>
 
-              {/* Pending Invites */}
               <div className="space-y-3 pt-2">
                 <div>
                   <h3 className="text-[16px] font-semibold text-[#1F140E]">
@@ -917,18 +864,17 @@ export function VenueOnboarding({
             </div>
           )}
 
-          {/* ═════════ Step 5: Choose A Plan ═════════ */}
           {step === "plan" && (
             <div className="space-y-8">
               <div>
                 <StepBadge n={5} />
-                <h1 className={`${titleClass} mt-4`}>
-                  Choose A Plan That Fits Your Agency
-                </h1>
-                <p className="mt-1 text-[16px] text-[#6B625B]">
-                  Simple transparent pricing. Upgrade or downgrade anytime as
-                  your team grows.
-                </p>
+                <CommonHeader
+                  className="mt-4"
+                  variant="section"
+                  as="h1"
+                  title="Choose A Plan That Fits Your Agency"
+                  subtitle="Simple transparent pricing. Upgrade or downgrade anytime as your team grows."
+                />
               </div>
 
               {annualAvailable && (
@@ -983,18 +929,18 @@ export function VenueOnboarding({
             </div>
           )}
 
-          {/* ═════════ Step 6: Checkout / Complete Setup ═════════ */}
           {step === "checkout" && (
             <div className="space-y-6">
               <div>
-                <h1 className={titleClass}>Complete Your Setup</h1>
-                <p className="mt-1 text-[16px] text-[#6B625B]">
-                  Select a package to activate your event and start inviting.
-                </p>
+                <CommonHeader
+                  variant="section"
+                  as="h1"
+                  title="Complete Your Setup"
+                  subtitle="Select a package to activate your event and start inviting."
+                />
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Order Summary */}
                 <div className="rounded-[24px] border border-[#EEE9E0] bg-[#FAF8F4] p-6 space-y-5">
                   <h2 className="text-[18px] font-bold text-[#1F140E]">
                     Order Summary
@@ -1024,7 +970,6 @@ export function VenueOnboarding({
                   </div>
                 </div>
 
-                {/* Payment Method */}
                 <div className="rounded-[24px] border border-[#EEE9E0] bg-white p-6 space-y-4">
                   <h2 className="text-[18px] font-bold text-[#1F140E]">
                     Payment Method
@@ -1065,36 +1010,34 @@ export function VenueOnboarding({
                     </button>
                   </div>
 
-                  <button
+                  <CommonButton
                     type="button"
+                    variant="black"
+                    size="xl"
+                    fullWidth
+                    className="mt-4"
                     disabled={busy}
+                    isLoading={busy}
+                    loadingText="Processing..."
                     onClick={() =>
                       method === "card" ? setModal("card") : createVenue()
                     }
-                    className={`${darkButton} mt-4 h-14 w-full text-[17px]`}
                   >
-                    {busy
-                      ? "Processing..."
-                      : `Pay ${total === 0 ? "₦00" : naira(total)} & Create Event`}
-                  </button>
+                    {`Pay ${total === 0 ? "₦00" : naira(total)} & Create Event`}
+                  </CommonButton>
                 </div>
               </div>
 
               <div className="mt-8 border-t border-[#EAE4DA] pt-5">
-                <button
-                  type="button"
-                  onClick={() => setStep("plan")}
-                  className={`${outlineButton} h-11 px-5 text-[15px]`}
-                >
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </button>
+                <CommonButton type="button" variant="outline" showLeftIcon onClick={() => setStep("plan")}>
+                  Back
+                </CommonButton>
               </div>
             </div>
           )}
         </section>
       </main>
 
-      {/* ───── Modals ───── */}
       {modal === "card" && (
         <CardPaymentModal
           total={total}
@@ -1119,20 +1062,12 @@ export function VenueOnboarding({
             message={`"${venueName || businessName}" has been created successfully. You are now ready to start inviting guests.`}
           />
           <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={() => setModal("card")}
-              className={`${brownButton} h-[52px] w-full text-[17px]`}
-            >
-              Pay ₦35,000 &amp; Activate
-            </button>
-            <button
-              type="button"
-              onClick={goDashboard}
-              className={`${outlineButton} h-[52px] w-full text-[17px]`}
-            >
+            <CommonButton type="button" size="lg" fullWidth onClick={() => setModal("card")}>
+              Pay ₦35,000 & Activate
+            </CommonButton>
+            <CommonButton type="button" variant="outline" size="lg" fullWidth onClick={goDashboard}>
               Go to Event Dashboard
-            </button>
+            </CommonButton>
           </div>
         </Modal>
       )}
@@ -1144,13 +1079,9 @@ export function VenueOnboarding({
             message={`"${venueName || businessName}" has been created successfully. You are now ready to start inviting guests.`}
           />
           <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={goDashboard}
-              className={`${brownButton} h-[52px] w-full text-[17px]`}
-            >
+            <CommonButton type="button" size="lg" fullWidth onClick={goDashboard}>
               Go to Event Dashboard
-            </button>
+            </CommonButton>
           </div>
         </Modal>
       )}

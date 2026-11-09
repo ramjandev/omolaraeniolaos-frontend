@@ -21,11 +21,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { dispatchCoordinatedMessage, listEventCommunications, submitGuestRsvp } from '@/lib/api/platform';
 import { listLiveThread, postLiveMessage, subscribeThread, uploadMedia, type LiveMessage } from '@/lib/liveChat';
+import { fillMessageTemplate, listMessageTemplates, templateChannelLabel, type MessageTemplate } from '@/lib/messageTemplates';
 import { ChatMedia, EmojiPicker, useVoiceNote } from '@/components/chat/ChatBits';
 import { getEventGuests, getIndividualEventById, updateEventGuest } from '@/lib/api/individual-events';
 import { eventsPath, type OrganizerKind } from '@/lib/organizer';
 import { EventBreadcrumb } from '@/components/events/shared/EventBreadcrumb';
+import { LocaleFrame } from '@/components/i18n/I18nProvider';
+import CommonSelect, { type SelectOption } from '@/components/common/CommonSelect';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { TablePagination } from '@/components/shared/TablePagination';
+import type { AppLocale } from '@/i18n/locales';
+import { useTranslations } from 'next-intl';
 
 export interface CommGuest {
   id: string;
@@ -40,6 +46,8 @@ export interface CommGuest {
   lastActive: string;
   inviteSentDate: string;
   dietary: string;
+  qrCode: string;
+  tableSeat: string;
   chatHistory: {
     id?: string;
     sender: 'system' | 'guest';
@@ -50,6 +58,28 @@ export interface CommGuest {
     fileName?: string | null;
   }[];
 }
+
+const GUEST_TYPE_OPTIONS: SelectOption<CommGuest['type']>[] = [
+  { label: 'VIP', value: 'VIP' },
+  { label: 'General', value: 'General' },
+  { label: 'Family & Friends', value: 'Family & Friends' },
+  { label: 'Speakers & Partners', value: 'Speakers & Partners' },
+];
+
+const RSVP_FILTER_OPTIONS: SelectOption<string>[] = [
+  { label: 'RSVP Status', value: 'all' },
+  { label: 'Confirmed', value: 'Confirmed' },
+  { label: 'No Response', value: 'No Response' },
+  { label: 'Rejected', value: 'Rejected' },
+  { label: 'Tentative', value: 'Tentative' },
+];
+
+const RSVP_STATUS_OPTIONS: SelectOption<CommGuest['rsvpStatus']>[] = [
+  { label: 'No Response', value: 'No Response' },
+  { label: 'Confirmed', value: 'Confirmed' },
+  { label: 'Tentative', value: 'Tentative' },
+  { label: 'Rejected', value: 'Rejected' },
+];
 
 function toHistory(message: LiveMessage): CommGuest['chatHistory'][number] {
   return {
@@ -62,7 +92,6 @@ function toHistory(message: LiveMessage): CommGuest['chatHistory'][number] {
     fileName: message.fileName,
   };
 }
-
 
 function mapRsvp(status: string): CommGuest['rsvpStatus'] {
   const value = status.toLowerCase();
@@ -92,6 +121,165 @@ interface GuestCommunicationsWorkspaceProps {
   eventId: string;
 }
 
+const PREVIEW_LANGUAGES: Array<{ code: AppLocale; label: string }> = [
+  { code: 'en', label: '🇳🇬 English' },
+  { code: 'yo', label: '🇳🇬 Èdè Yorùbá' },
+  { code: 'ha', label: '🇳🇬 Harshen Hausa' },
+  { code: 'ig', label: '🇳🇬 Asụsụ Igbo' },
+  { code: 'pcm', label: '🇳🇬 Naija Pidgin' },
+];
+
+function GuestLanguagePreview({
+  locale,
+  eventTitle,
+  eventWhen,
+  eventVenue,
+  guestName,
+  onLanguage,
+  onRsvp,
+  onVoice,
+}: {
+  locale: AppLocale;
+  eventTitle: string;
+  eventWhen: string;
+  eventVenue: string;
+  guestName: string;
+  onLanguage: (code: AppLocale, label: string) => void;
+  onRsvp: (status: CommGuest['rsvpStatus']) => void;
+  onVoice: () => void;
+}) {
+  return (
+    <LocaleFrame locale={locale}>
+      <GuestLanguagePreviewCopy
+        locale={locale}
+        eventTitle={eventTitle}
+        eventWhen={eventWhen}
+        eventVenue={eventVenue}
+        guestName={guestName}
+        onLanguage={onLanguage}
+        onRsvp={onRsvp}
+        onVoice={onVoice}
+      />
+    </LocaleFrame>
+  );
+}
+
+function GuestLanguagePreviewCopy({
+  locale,
+  eventTitle,
+  eventWhen,
+  eventVenue,
+  guestName,
+  onLanguage,
+  onRsvp,
+  onVoice,
+}: {
+  locale: AppLocale;
+  eventTitle: string;
+  eventWhen: string;
+  eventVenue: string;
+  guestName: string;
+  onLanguage: (code: AppLocale, label: string) => void;
+  onRsvp: (status: CommGuest['rsvpStatus']) => void;
+  onVoice: () => void;
+}) {
+  const t = useTranslations('guest');
+
+  return (
+    <>
+      <div className="w-full bg-white dark:bg-[#1E1610] rounded-2xl p-4 shadow-sm border border-[#E8DACB] space-y-3">
+        <div className="relative rounded-xl overflow-hidden h-28 bg-gradient-to-r from-[#703816] to-[#5C2911] p-3 flex flex-col justify-end text-white">
+          <Maximize2 className="w-4 h-4 text-white/80 absolute top-2.5 right-2.5" />
+          <p className="font-serif font-bold text-sm">{eventTitle}</p>
+          <p className="text-[10px] text-white/80">{eventVenue || t('venuePending')}</p>
+        </div>
+
+        <div className="space-y-1.5 text-xs text-foreground leading-relaxed">
+          <p className="font-bold text-[#6E3B1C]">{guestName}</p>
+          <p className="text-muted-foreground">{t('invitedLine', { event: eventTitle })}</p>
+          <p className="text-muted-foreground">
+            <strong>{t('dateTime')}</strong> {eventWhen || t('toBeConfirmed')}
+          </p>
+          <p className="text-muted-foreground">
+            <strong>{t('venueLabel')}</strong> {eventVenue || t('toBeConfirmed')}
+          </p>
+          <p className="text-muted-foreground pt-1 text-[11px]">{t('kindlyRsvp')}</p>
+        </div>
+
+        <div className="text-right text-[10px] text-muted-foreground font-mono">10:00 AM</div>
+      </div>
+
+      <div className="w-full bg-white dark:bg-[#1E1610] rounded-2xl p-4 shadow-sm border border-[#E8DACB] space-y-3">
+        <div className="space-y-1">
+          <p className="font-bold text-xs text-foreground">{t('chooseLanguage')}</p>
+          <p className="text-[11px] text-muted-foreground">{t('switchAnytime')}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {PREVIEW_LANGUAGES.map((lang) => {
+            const isChosen = locale === lang.code;
+            return (
+              <button
+                key={lang.code}
+                type="button"
+                onClick={() => onLanguage(lang.code, lang.label)}
+                className={`p-2.5 rounded-xl text-xs font-medium border flex items-center justify-between transition-colors cursor-pointer ${
+                  isChosen
+                    ? 'bg-[#1E7E34] text-white border-[#1E7E34]'
+                    : 'bg-card border-[#EBE3D9] text-foreground hover:bg-muted/40'
+                }`}
+              >
+                <span>{lang.label}</span>
+                {isChosen && <Check className="w-3.5 h-3.5" />}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="text-right text-[10px] text-muted-foreground font-mono">10:00 AM</div>
+      </div>
+
+      <div className="w-full bg-white dark:bg-[#1E1610] rounded-2xl p-4 shadow-sm border border-[#E8DACB] space-y-3">
+        <p className="font-bold text-xs text-foreground text-center">{t('respondHow')}</p>
+
+        <div className="space-y-2 pt-1">
+          <button
+            type="button"
+            onClick={() => onRsvp('Confirmed')}
+            className="w-full p-2.5 rounded-xl bg-[#1E7E34] hover:bg-[#17662A] text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+          >
+            <span>✓ {t('accept')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onRsvp('Tentative')}
+            className="w-full p-2.5 rounded-xl bg-[#E8F4F8] hover:bg-[#D5EBF1] text-[#026AA7] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#CDE5EE]"
+          >
+            <span>🍷 {t('tentative')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onRsvp('Rejected')}
+            className="w-full p-2.5 rounded-xl bg-[#FDE8E8] hover:bg-[#FBD5D5] text-[#9B1C1C] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#F8B4B4]"
+          >
+            <span>✕ {t('decline')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onVoice}
+            className="w-full p-2.5 rounded-xl bg-[#F3E8FF] hover:bg-[#E9D5FF] text-[#6B21A8] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#E9D5FF]"
+          >
+            <span>🎙️ {t('voiceSpeak')}</span>
+          </button>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground text-center pt-1">{t('orReply')}</p>
+        <div className="text-right text-[10px] text-muted-foreground font-mono">10:00 AM</div>
+      </div>
+    </>
+  );
+}
+
 export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommunicationsWorkspaceProps) {
   const [viewMode, setViewMode] = React.useState<'table' | 'chat'>('table');
   const [guests, setGuests] = React.useState<CommGuest[]>([]);
@@ -111,9 +299,11 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
 
   const [chatInputText, setChatInputText] = React.useState('');
   const [emojiOpen, setEmojiOpen] = React.useState(false);
+  const [templateOpen, setTemplateOpen] = React.useState(false);
+  const [chatTemplates, setChatTemplates] = React.useState<MessageTemplate[]>([]);
   const [chatBusy, setChatBusy] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [selectedLanguage, setSelectedLanguage] = React.useState('English');
+  const [selectedLanguage, setSelectedLanguage] = React.useState<AppLocale>('en');
   const sendFileRef = React.useRef<(file: File) => Promise<void>>(async () => undefined);
   const voice = useVoiceNote((file) => {
     void sendFileRef.current(file);
@@ -175,6 +365,8 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
           lastActive: '',
           inviteSentDate: '',
           dietary: guest.preference === '--' ? '' : guest.preference,
+          qrCode: guest.qrCode || '',
+          tableSeat: guest.tableSeat || '',
           chatHistory: [],
         };
       });
@@ -236,6 +428,27 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
       stop();
     };
   }, [activeGuestId, eventId, pushHistory, viewMode]);
+
+  React.useEffect(() => {
+    if (viewMode !== 'chat') return;
+    void listMessageTemplates(eventId)
+      .then(setChatTemplates)
+      .catch(() => setChatTemplates([]));
+  }, [eventId, viewMode]);
+
+  const applyTemplate = (template: MessageTemplate) => {
+    if (!activeGuest) return;
+    const link = `${window.location.origin}/guest?attendeeId=${activeGuest.id}&eventId=${eventId}&qr=${encodeURIComponent(activeGuest.qrCode || '')}`;
+    setChatInputText(fillMessageTemplate(template.content, {
+      guest_name: activeGuest.name,
+      event_name: eventTitle,
+      event_date: eventWhen || 'the event date',
+      venue: eventVenue || 'the venue',
+      table_number: activeGuest.tableSeat || 'Not assigned',
+      rsvp_link: link,
+    }));
+    setTemplateOpen(false);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -397,7 +610,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
 
   return (
     <div className="w-full space-y-6">
-      {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl bg-[#261710] text-white shadow-2xl border border-[#D4A373]/40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
           <CheckCircle2 className="w-5 h-5 text-[#D4A373]" />
@@ -408,19 +620,16 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
         </div>
       )}
 
-      {/* VIEW MODE 1: ROSTER TABLE VIEW matching media_1791786578893_f48b6764.png */}
       {viewMode === 'table' ? (
         <div className="space-y-6">
           <EventBreadcrumb organizer={organizer} eventId={eventId} current="Guest Communication" />
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl md:text-4xl font-normal tracking-tight text-[#1F140E] dark:text-[#FBF8F5]">
-                Guest Communications Workspace
-              </h1>
-              <p className="text-xs text-muted-foreground mt-1">
-                Stay connected with your guests and follow up on pending RSVPs via WhatsApp.
-              </p>
-            </div>
+            <CommonHeader
+              variant="section"
+              as="h1"
+              title="Guest Communications Workspace"
+              subtitle="Stay connected with your guests and follow up on pending RSVPs via WhatsApp."
+            />
 
             <Button
               asChild
@@ -433,7 +642,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
             </Button>
           </div>
 
-          {/* 4 KPI Metric Cards matching screenshot */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-border/80 shadow-2xs bg-card p-5 space-y-1">
               <span className="font-serif text-3xl font-bold text-foreground">{guests.length}</span>
@@ -456,9 +664,7 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
             </Card>
           </div>
 
-          {/* Table Card */}
           <Card className="rounded-3xl border border-[#EBE3D9] dark:border-border bg-card shadow-2xs overflow-hidden">
-            {/* Toolbar Row with ⌘ k & Needs Reminder Pill */}
             <div className="p-4 md:p-6 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1 flex-wrap">
                 <div className="relative flex-1 min-w-[220px] max-w-sm">
@@ -474,7 +680,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                   </span>
                 </div>
 
-                {/* 2 Needs to Send Reminder pill */}
                 <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#FCEDE6] text-[#6E3B1C] text-xs font-semibold border border-[#F5D5C6]">
                   <span className="w-4 h-4 rounded-full bg-[#E07A5F] text-white flex items-center justify-center text-[10px]">
                     {needsReminderCount}
@@ -484,33 +689,24 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
               </div>
 
               <div className="flex items-center gap-3">
-                <select
+                <CommonSelect
                   value={rsvpFilter}
-                  onChange={(e) => setRsvpFilter(e.target.value)}
-                  className="text-xs h-10 px-3 rounded-xl border border-[#EBE3D9] bg-card text-foreground cursor-pointer"
-                >
-                  <option value="all">RSVP Status</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="No Response">No Response</option>
-                  <option value="Rejected">Rejected</option>
-                  <option value="Tentative">Tentative</option>
-                </select>
+                  item={RSVP_FILTER_OPTIONS}
+                  w={148}
+                  onValueChange={setRsvpFilter}
+                  className="h-10 rounded-xl border-[#EBE3D9] bg-card text-xs"
+                />
 
-                <select
+                <CommonSelect
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="text-xs h-10 px-3 rounded-xl border border-[#EBE3D9] bg-card text-foreground cursor-pointer"
-                >
-                  <option value="all">Guest Type</option>
-                  <option value="VIP">VIP</option>
-                  <option value="General">General</option>
-                  <option value="Family & Friends">Family &amp; Friends</option>
-                  <option value="Speakers & Partners">Speakers &amp; Partners</option>
-                </select>
+                  item={[{ label: 'Guest Type', value: 'all' }, ...GUEST_TYPE_OPTIONS]}
+                  w={160}
+                  onValueChange={setTypeFilter}
+                  className="h-10 rounded-xl border-[#EBE3D9] bg-card text-xs"
+                />
               </div>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#FAF7F2] dark:bg-muted/40 border-y border-[#EBE3D9] text-muted-foreground font-medium">
@@ -545,7 +741,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                         <input type="checkbox" className="rounded" />
                       </td>
 
-                      {/* Guest & Contact */}
                       <td className="py-3.5 px-4">
                         <div className="space-y-0.5">
                           <p className="font-semibold text-foreground">{guest.name}</p>
@@ -553,12 +748,12 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                         </div>
                       </td>
 
-                      {/* Guest Type inline select */}
                       <td className="py-3.5 px-4">
-                        <select
+                        <CommonSelect
                           value={guest.type}
-                          onChange={(e) => {
-                            const newType = e.target.value as CommGuest['type'];
+                          item={GUEST_TYPE_OPTIONS}
+                          w={150}
+                          onValueChange={(newType) => {
                             const previous = guest.type;
                             setGuests((current) => current.map((item) => (item.id === guest.id ? { ...item, type: newType } : item)));
                             void updateEventGuest(eventId, guest.id, { type: newType }).catch(() => {
@@ -566,21 +761,14 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                               showToast(`Could not update ${guest.name}.`);
                             });
                           }}
-                          className="h-8 px-2.5 rounded-lg border border-[#EBE3D9] bg-card text-foreground text-xs cursor-pointer"
-                        >
-                          <option value="VIP">VIP</option>
-                          <option value="General">General</option>
-                          <option value="Family & Friends">Family &amp; Friends</option>
-                          <option value="Speakers & Partners">Speakers &amp; Partners</option>
-                        </select>
+                          className="h-8 rounded-lg border-[#EBE3D9] bg-card text-xs"
+                        />
                       </td>
 
-                      {/* Party Size */}
                       <td className="py-3.5 px-4 font-mono font-medium text-foreground">
                         {guest.partySize > 0 ? guest.partySize : '--'}
                       </td>
 
-                      {/* RSVP Status */}
                       <td className="py-3.5 px-4">
                         {guest.rsvpStatus === 'Confirmed' && (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#E7F7ED] text-[#1E7E34]">
@@ -604,7 +792,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                         )}
                       </td>
 
-                      {/* Reminder Status */}
                       <td className="py-3.5 px-4">
                         {guest.reminderStatus === 'Needs Reminder' ? (
                           <button
@@ -621,7 +808,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                         )}
                       </td>
 
-                      {/* Action Column */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
@@ -657,10 +843,8 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
       ) : !activeGuest ? (
         <p className="text-sm text-muted-foreground">Select a guest to open the conversation.</p>
       ) : (
-        /* VIEW MODE 2: 3-COLUMN WHATSAPP CHAT CONVERSATION */
-        <div className="space-y-4">
-          {/* Top navigation row */}
-          <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 lg:h-[calc(100dvh-6.5rem)] lg:min-h-0 lg:overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between">
             <button
               type="button"
               onClick={() => setViewMode('table')}
@@ -674,12 +858,9 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
             </span>
           </div>
 
-          {/* 3-Column Split Container */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 rounded-3xl border border-[#EBE3D9] dark:border-border bg-card overflow-hidden shadow-sm min-h-[720px]">
-            {/* COLUMN 1 (Width: 3 / 12): Guest Conversations List */}
-            <div className="lg:col-span-3 border-r border-[#EBE3D9] dark:border-border flex flex-col bg-[#FAF8F5] dark:bg-card/40">
-              {/* Search Box */}
-              <div className="p-3 border-b border-[#EBE3D9]">
+          <div className="grid min-h-[720px] flex-1 grid-cols-1 overflow-hidden rounded-3xl border border-[#EBE3D9] bg-card shadow-sm lg:min-h-0 lg:grid-cols-12 dark:border-border">
+            <div className="flex min-h-0 flex-col overflow-hidden border-r border-[#EBE3D9] bg-[#FAF8F5] lg:col-span-3 dark:border-border dark:bg-card/40">
+              <div className="shrink-0 border-b border-[#EBE3D9] p-3">
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -694,8 +875,7 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                 </div>
               </div>
 
-              {/* Guest Conversation Items */}
-              <div className="flex-1 overflow-y-auto divide-y divide-[#EBE3D9]/60">
+              <div className="min-h-0 flex-1 divide-y divide-[#EBE3D9]/60 overflow-y-auto">
                 {filteredGuests.map((g) => {
                   const isActive = g.id === activeGuestId;
 
@@ -709,7 +889,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                           : 'hover:bg-white/60 dark:hover:bg-muted/20'
                       }`}
                     >
-                      {/* Avatar */}
                       <div className="w-10 h-10 rounded-full bg-[#3B281E] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                         {g.name.slice(0, 2).toUpperCase()}
                       </div>
@@ -761,152 +940,28 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
               </div>
             </div>
 
-            {/* COLUMN 2 (Width: 6 / 12): WhatsApp Chat Canvas matching media_1791786489953_6d4f34e1.png */}
-            <div className="lg:col-span-6 flex flex-col justify-between border-r border-[#EBE3D9] bg-[#F7F4EE] relative">
-              {/* Doodle Wallpaper Overlay */}
+            <div className="relative flex min-h-0 flex-col overflow-hidden border-r border-[#EBE3D9] bg-[#F7F4EE] lg:col-span-6">
               <div className="absolute inset-0 bg-[radial-gradient(#d6cdbe_1.2px,transparent_1.2px)] [background-size:18px_18px] opacity-70 pointer-events-none" />
 
-              {/* Chat Messages Feed */}
-              <div className="relative z-10 p-5 space-y-4 flex-1 overflow-y-auto">
-                {/* Bubble 1: Event Invitation Card */}
-                <div className="max-w-md mx-auto bg-white dark:bg-[#1E1610] rounded-2xl p-4 shadow-sm border border-[#E8DACB] space-y-3">
-                  {/* Event Thumbnail Header */}
-                  <div className="relative rounded-xl overflow-hidden h-28 bg-gradient-to-r from-[#703816] to-[#5C2911] p-3 flex flex-col justify-end text-white">
-                    <Maximize2 className="w-4 h-4 text-white/80 absolute top-2.5 right-2.5" />
-                    <p className="font-serif font-bold text-sm">{eventTitle}</p>
-                    <p className="text-[10px] text-white/80">{eventVenue || 'Venue to be confirmed'}</p>
-                  </div>
+              <div className="relative z-10 min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
+                <GuestLanguagePreview
+                  locale={selectedLanguage}
+                  eventTitle={eventTitle}
+                  eventWhen={eventWhen}
+                  eventVenue={eventVenue}
+                  guestName={activeGuest.name}
+                  onLanguage={(code, label) => {
+                    setSelectedLanguage(code);
+                    showToast(`Language set to ${label}`);
+                  }}
+                  onRsvp={handleInteractiveRsvp}
+                  onVoice={() => showToast('Voice RSVP recording enabled for guest note!')}
+                />
 
-                  <div className="space-y-1.5 text-xs text-foreground leading-relaxed">
-                    <p className="font-bold text-[#6E3B1C]">
-                      {activeGuest.name}
-                    </p>
-                    <p className="text-muted-foreground">
-                      You are invited to {eventTitle}.
-                    </p>
-                    <p className="text-muted-foreground">
-                      <strong>Date &amp; Time:</strong> {eventWhen || 'To be confirmed'}
-                    </p>
-                    <p className="text-muted-foreground">
-                      <strong>Venue:</strong> {eventVenue || 'To be confirmed'}
-                    </p>
-                    <p className="text-muted-foreground pt-1 text-[11px]">
-                      Kindly RSVP below to help us prepare your reserved seat and bespoke hospitality.
-                    </p>
-                  </div>
-
-                  <div className="text-right text-[10px] text-muted-foreground font-mono">
-                    10:00 AM
-                  </div>
-                </div>
-
-                {/* Bubble 2: Language Preference Selector Card */}
-                <div className="max-w-md mx-auto bg-white dark:bg-[#1E1610] rounded-2xl p-4 shadow-sm border border-[#E8DACB] space-y-3">
-                  <div className="space-y-1">
-                    <p className="font-bold text-xs text-foreground">
-                      Please choose your preferred communication language
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Select your preferred language below, you can switch anytime:
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    {[
-                      { code: 'English', label: '🇳🇬 English' },
-                      { code: 'Yoruba', label: '🇳🇬 Èdè Yorùbá' },
-                      { code: 'Hausa', label: '🇳🇬 Harshen Hausa' },
-                      { code: 'Igbo', label: '🇳🇬 Asusu Igbo' },
-                      { code: 'Pidgin', label: '🇳🇬 Naija Pidgin' },
-                    ].map((lang) => {
-                      const isChosen = selectedLanguage === lang.code;
-
-                      return (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => {
-                            setSelectedLanguage(lang.code);
-                            showToast(`Language set to ${lang.label}`);
-                          }}
-                          className={`p-2.5 rounded-xl text-xs font-medium border flex items-center justify-between transition-colors cursor-pointer ${
-                            isChosen
-                              ? 'bg-[#1E7E34] text-white border-[#1E7E34]'
-                              : 'bg-card border-[#EBE3D9] text-foreground hover:bg-muted/40'
-                          }`}
-                        >
-                          <span>{lang.label}</span>
-                          {isChosen && <Check className="w-3.5 h-3.5" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="text-right text-[10px] text-muted-foreground font-mono">
-                    10:00 AM
-                  </div>
-                </div>
-
-                {/* Bubble 3: RSVP Response Action Buttons Card */}
-                <div className="max-w-md mx-auto bg-white dark:bg-[#1E1610] rounded-2xl p-4 shadow-sm border border-[#E8DACB] space-y-3">
-                  <p className="font-bold text-xs text-foreground text-center">
-                    How would you like to respond to this invitation?
-                  </p>
-
-                  <div className="space-y-2 pt-1">
-                    {/* Button 1: Accept */}
-                    <button
-                      type="button"
-                      onClick={() => handleInteractiveRsvp('Confirmed')}
-                      className="w-full p-2.5 rounded-xl bg-[#1E7E34] hover:bg-[#17662A] text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                    >
-                      <span>✓ Accept Invitation</span>
-                    </button>
-
-                    {/* Button 2: Tentative */}
-                    <button
-                      type="button"
-                      onClick={() => handleInteractiveRsvp('Tentative')}
-                      className="w-full p-2.5 rounded-xl bg-[#E8F4F8] hover:bg-[#D5EBF1] text-[#026AA7] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#CDE5EE]"
-                    >
-                      <span>🍷 Tentative / Maybe</span>
-                    </button>
-
-                    {/* Button 3: Decline */}
-                    <button
-                      type="button"
-                      onClick={() => handleInteractiveRsvp('Rejected')}
-                      className="w-full p-2.5 rounded-xl bg-[#FDE8E8] hover:bg-[#FBD5D5] text-[#9B1C1C] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#F8B4B4]"
-                    >
-                      <span>✕ Regretfully Decline</span>
-                    </button>
-
-                    {/* Button 4: Voice RSVP */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        showToast('Voice RSVP recording enabled for guest note!');
-                      }}
-                      className="w-full p-2.5 rounded-xl bg-[#F3E8FF] hover:bg-[#E9D5FF] text-[#6B21A8] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#E9D5FF]"
-                    >
-                      <span>🎙️ Voice RSVP (Speak note)</span>
-                    </button>
-                  </div>
-
-                  <p className="text-[11px] text-muted-foreground text-center pt-1">
-                    Or reply via text in English or native language 💬
-                  </p>
-
-                  <div className="text-right text-[10px] text-muted-foreground font-mono">
-                    10:00 AM
-                  </div>
-                </div>
-
-                {/* Render any additional sent messages */}
                 {activeGuest.chatHistory.map((item, idx) => (
                   <div
                     key={idx}
-                    className={`max-w-md mx-auto flex flex-col ${
+                    className={`w-full flex flex-col ${
                       item.sender === 'system' ? 'items-end' : 'items-start'
                     }`}
                   >
@@ -929,19 +984,39 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                 ))}
               </div>
 
-              {/* Chat Composer Bottom Bar */}
-              <div className="relative z-10 p-3 bg-white dark:bg-card border-t border-[#EBE3D9] space-y-2">
-                <div className="flex items-center justify-between">
+              <div className="relative z-10 shrink-0 space-y-2 border-t border-[#EBE3D9] bg-white p-3 dark:bg-card">
+                <div className="relative flex items-center justify-between">
                   <Button
-                    asChild
+                    type="button"
                     variant="outline"
                     size="sm"
                     className="h-7 text-[11px] rounded-full border-[#EBE3D9] text-[#6E3B1C] hover:bg-[#FAF8F5]"
+                    onClick={() => setTemplateOpen((open) => !open)}
                   >
-                    <Link href={templatesHref}>
-                      Use Template
-                    </Link>
+                    Use Template
                   </Button>
+                  {templateOpen && (
+                    <div className="absolute bottom-9 left-0 z-40 w-72 rounded-2xl border border-[#E8DACB] bg-white p-2 shadow-lg">
+                      {chatTemplates.length === 0 ? (
+                        <p className="px-2 py-1 text-[11px] text-muted-foreground">No saved templates yet.</p>
+                      ) : (
+                        chatTemplates.map((template) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            className="block w-full rounded-xl px-2 py-1.5 text-left hover:bg-[#FAF0E6]"
+                            onClick={() => applyTemplate(template)}
+                          >
+                            <span className="block text-xs font-medium text-[#1F140E]">{template.name}</span>
+                            <span className="block text-[10px] text-muted-foreground">{templateChannelLabel(template.channel)}</span>
+                          </button>
+                        ))
+                      )}
+                      <Link href={templatesHref} className="mt-1 block px-2 py-1 text-[11px] font-medium text-[#6E3B1C]">
+                        Manage templates
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 <form onSubmit={handleSendChatMessage} className="relative flex items-center gap-2">
@@ -981,7 +1056,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                     className="h-10 text-xs rounded-full bg-[#FAF8F5] dark:bg-muted/40 border-[#EBE3D9]"
                   />
 
-                  {/* Send Plane Button */}
                   <button
                     type="submit"
                     className="w-10 h-10 rounded-full bg-[#6E3B1C] hover:bg-[#5C3117] text-white flex items-center justify-center shrink-0 shadow-xs cursor-pointer"
@@ -989,7 +1063,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                     <Send className="w-4 h-4 ml-0.5" />
                   </button>
 
-                  {/* Mic Voice Button */}
                   <button
                     type="button"
                     onClick={() => void voice.toggle()}
@@ -1007,10 +1080,8 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
               </div>
             </div>
 
-            {/* COLUMN 3 (Width: 3 / 12): Guest Meta Data & Manual RSVP Editor */}
-            <div className="lg:col-span-3 p-5 flex flex-col justify-between space-y-6 bg-white dark:bg-card">
+            <div className="flex h-full min-h-0 flex-col space-y-6 overflow-y-auto bg-white p-5 lg:col-span-3 lg:sticky lg:top-0 dark:bg-card">
               <div className="space-y-5">
-                {/* Avatar & Guest Details */}
                 <div className="flex flex-col items-center text-center space-y-2 pt-2">
                   <div className="w-20 h-20 rounded-full bg-[#3B281E] text-white flex items-center justify-center font-bold text-xl shadow-md border-2 border-[#D4A373]">
                     {activeGuest.name.slice(0, 2).toUpperCase()}
@@ -1024,19 +1095,15 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                     </p>
                   </div>
 
-                  <select
+                  <CommonSelect
                     value={manualGroup}
-                    onChange={(e) => setManualGroup(e.target.value as CommGuest['type'])}
-                    className="h-8 px-3 rounded-lg border border-[#EBE3D9] text-xs font-semibold bg-[#FAF8F5] text-[#6E3B1C] cursor-pointer"
-                  >
-                    <option value="VIP">VIP</option>
-                    <option value="General">General</option>
-                    <option value="Family & Friends">Family &amp; Friends</option>
-                    <option value="Speakers & Partners">Speakers &amp; Partners</option>
-                  </select>
+                    item={GUEST_TYPE_OPTIONS}
+                    w={160}
+                    onValueChange={setManualGroup}
+                    className="h-8 rounded-lg border-[#EBE3D9] bg-[#FAF8F5] text-xs font-semibold text-[#6E3B1C]"
+                  />
                 </div>
 
-                {/* Guest Meta Data Box */}
                 <div className="space-y-2.5 pt-3 border-t border-[#EBE3D9] text-xs">
                   <p className="font-bold text-xs text-foreground uppercase tracking-wider">
                     Guest Meta Data
@@ -1073,7 +1140,6 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                   </div>
                 </div>
 
-                {/* Send Reminder Button */}
                 <Button
                   onClick={() => handleSendReminder(activeGuest)}
                   className="w-full h-10 text-xs font-bold rounded-xl bg-[#E59838] hover:bg-[#C9822B] text-white shadow-xs"
@@ -1081,22 +1147,18 @@ export function GuestCommunicationsWorkspace({ organizer, eventId }: GuestCommun
                   Send Reminder
                 </Button>
 
-                {/* Change RSVP Status Manually Form */}
                 <form onSubmit={handleSaveManualChanges} className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-muted/30 border border-[#EBE3D9] space-y-3">
                   <div className="space-y-1">
                     <Label className="text-[11px] font-semibold text-foreground">
                       Change RSVP Status Manually *
                     </Label>
-                    <select
+                    <CommonSelect
                       value={manualStatus}
-                      onChange={(e) => setManualStatus(e.target.value as CommGuest['rsvpStatus'])}
-                      className="w-full h-9 px-3 rounded-xl border border-[#EBE3D9] bg-card text-xs text-foreground cursor-pointer"
-                    >
-                      <option value="No Response">No Response</option>
-                      <option value="Confirmed">Confirmed</option>
-                      <option value="Tentative">Tentative</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
+                      item={RSVP_STATUS_OPTIONS}
+                      w={220}
+                      onValueChange={setManualStatus}
+                      className="h-9 w-full rounded-xl border-[#EBE3D9] bg-card text-xs"
+                    />
                   </div>
 
                   <div className="space-y-1">
