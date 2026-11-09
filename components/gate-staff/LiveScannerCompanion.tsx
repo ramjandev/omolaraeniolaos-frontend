@@ -42,10 +42,8 @@ export function LiveScannerCompanion() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-5xl mx-auto">
-      {/* Viewfinder Column */}
       <div className="lg:col-span-7 space-y-4">
         <div className="relative rounded-2xl overflow-hidden border border-border bg-zinc-950 p-6 flex flex-col items-center justify-center min-h-[380px] shadow-lg">
-          {/* Viewfinder animation reticle */}
           <div className="relative w-64 h-64 border-2 border-emerald-500/80 rounded-2xl flex items-center justify-center overflow-hidden">
             <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />
             <div className="w-full h-1 bg-emerald-400 absolute top-0 animate-bounce shadow-md shadow-emerald-500/50" />
@@ -63,7 +61,6 @@ export function LiveScannerCompanion() {
           </div>
         </div>
 
-        {/* Manual Barcode / QR input backup */}
         <div className="flex gap-2 p-3 bg-muted/40 rounded-xl border border-border">
           <Input
             value={qrInput}
@@ -77,7 +74,6 @@ export function LiveScannerCompanion() {
           </Button>
         </div>
 
-        {/* Quick Test Codes */}
         <div className="space-y-1">
           <span className="text-[11px] text-muted-foreground">Quick Test Barcodes:</span>
           <div className="flex flex-wrap gap-2">
@@ -97,7 +93,6 @@ export function LiveScannerCompanion() {
         </div>
       </div>
 
-      {/* Verification State Column */}
       <div className="lg:col-span-5 space-y-4">
         <Card className="border-border/80 shadow-xs">
           <CardContent className="p-6 space-y-5">
@@ -110,7 +105,6 @@ export function LiveScannerCompanion() {
               </span>
             </div>
 
-            {/* Validation Outcome Card */}
             {scanStatus === 'valid' && scannedResult && (
               <div className="p-5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border-2 border-emerald-500 text-center space-y-3 animate-in fade-in zoom-in-95">
                 <div className="w-12 h-12 rounded-full bg-emerald-500 text-white mx-auto flex items-center justify-center">

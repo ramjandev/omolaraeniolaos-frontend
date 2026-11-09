@@ -1,0 +1,10 @@
+import fs from 'fs';
+const s = fs.readFileSync('app/admin/users/page.tsx', 'utf8');
+const m = [...s.matchAll(/<select\b([\s\S]*?)(?<![=])>([\s\S]*?)<\/select>/g)];
+console.log('count', m.length);
+console.log('ATTRS:\n', m[0][1]);
+console.log('INNER:\n', m[0][2]);
+const attrs = m[0][1];
+console.log('value', attrs.match(/value=\{([^}]+)\}/));
+console.log('ocBlock', attrs.match(/onChange=\{\(event\)\s*=>\s*\{([\s\S]*?)\}\s*\}/));
+console.log('ocExpr', attrs.match(/onChange=\{\(event\)\s*=>\s*([^]+?)\}/));

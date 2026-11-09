@@ -89,15 +89,12 @@ export default function GateStaffProfilePage() {
     <GateMobileShell showHeader={false} activeTab="profile">
       <div className="space-y-4 pt-1">
         
-        {/* Title */}
         <h1 className="font-serif text-3xl font-medium tracking-tight text-[#1F1916] mb-2">
           My Profile
         </h1>
 
-        {/* Staff Profile Card matching mockup 10 */}
         <div className="bg-white rounded-3xl p-5 border border-[#EAE5DC] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-4 relative">
           
-          {/* Top row with avatar + name + edit icon */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 rounded-full border border-[#D5CFC7] bg-[#E8E2D8] flex items-center justify-center text-base font-semibold text-[#5A4F46]">
@@ -147,7 +144,6 @@ export default function GateStaffProfilePage() {
           </div>
         </div>
 
-        {/* Change Password Button */}
         <button
           type="button"
           onClick={() => setPasswordOpen(true)}
@@ -214,7 +210,6 @@ export default function GateStaffProfilePage() {
           </DialogContent>
         </Dialog>
 
-        {/* Current Assignments Section */}
         <div className="space-y-3 pt-2">
           <h3 className="font-semibold text-sm text-[#1F1916]">
             Current Assignments
@@ -250,7 +245,6 @@ export default function GateStaffProfilePage() {
           ))}
         </div>
 
-        {/* Log Out Outline Button */}
         <div className="pt-2">
           <button
             type="button"

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Eye, ArrowRight } from 'lucide-react';
+import CommonSelect from '@/components/common/CommonSelect';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { DashboardEvent, DashboardEventsPage } from '@/lib/api/admin-dashboard';
@@ -154,16 +155,18 @@ export function ActiveEventsAdminTable({
         <div className="px-4 py-3 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <span>Rows per page</span>
-            <select
+            <CommonSelect
               aria-label="Rows per page"
-              className="bg-background border border-border/80 rounded-md px-2 py-1 text-xs text-foreground focus:outline-none"
               value={String(limit)}
-              onChange={(event) => onLimitChange(Number(event.target.value))}
-            >
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-            </select>
+              item={[
+                { label: '10', value: '10' },
+                { label: '20', value: '20' },
+                { label: '50', value: '50' },
+              ]}
+              w={72}
+              onValueChange={(value) => onLimitChange(Number(value))}
+              className="h-8 rounded-md border-border/80 bg-background px-2 text-xs"
+            />
             <span className="text-muted-foreground ml-2">
               showing {start}–{end} of {total} rows
             </span>

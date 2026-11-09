@@ -1,10 +1,7 @@
 "use client";
 
-import {
-  brownButton,
-  fieldClass,
-  labelClass,
-} from "@/components/auth/onboarding-ui";
+import { inputClass } from "@/components/auth/onboarding";
+import CommonButton from "@/components/common/CommonButton";
 import {
   Dialog,
   DialogContent,
@@ -102,7 +99,6 @@ function PillOption({
 interface PlanFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Edit mode when a plan is passed, create mode otherwise. */
   plan?: Plan | null;
   defaultOrganizerType?: PlanOrganizerType;
   busy?: boolean;
@@ -181,13 +177,13 @@ export function PlanFormModal({
 
         <form onSubmit={submit} className="space-y-5 pt-1" noValidate>
           <div>
-            <label htmlFor="planName" className={labelClass}>
+            <label htmlFor="planName" className={inputClass.label}>
               Plan Name
             </label>
             <input
               id="planName"
               placeholder="e.g, Grand Celebration Pass"
-              className={fieldClass}
+              className={inputClass.input}
               {...register("planName")}
             />
             {errors.planName && (
@@ -198,14 +194,14 @@ export function PlanFormModal({
           </div>
 
           <div>
-            <label htmlFor="planDescription" className={labelClass}>
+            <label htmlFor="planDescription" className={inputClass.label}>
               Description
             </label>
             <textarea
               id="planDescription"
               rows={2}
               placeholder="e.g, Ideal for weddings, galas and social banquets."
-              className={cn(fieldClass, "h-auto resize-none py-3")}
+              className={cn(inputClass.textarea, "resize-none")}
               {...register("description")}
             />
             {errors.description && (
@@ -216,14 +212,14 @@ export function PlanFormModal({
           </div>
 
           <div>
-            <label htmlFor="planPrice" className={labelClass}>
+            <label htmlFor="planPrice" className={inputClass.label}>
               Price
             </label>
             <input
               id="planPrice"
               inputMode="decimal"
               placeholder="e.g, ₦35,000"
-              className={fieldClass}
+              className={inputClass.input}
               {...register("price")}
             />
             {errors.price && (
@@ -234,7 +230,7 @@ export function PlanFormModal({
           </div>
 
           <div>
-            <span className={labelClass}>Organizer Type</span>
+            <span className={inputClass.label}>Organizer Type</span>
             <div
               role="radiogroup"
               aria-label="Organizer Type"
@@ -255,7 +251,7 @@ export function PlanFormModal({
           </div>
 
           <div>
-            <span className={labelClass}>Billing Cycle</span>
+            <span className={inputClass.label}>Billing Cycle</span>
             <div
               role="radiogroup"
               aria-label="Billing Cycle"
@@ -276,7 +272,7 @@ export function PlanFormModal({
           </div>
 
           <div>
-            <span className={labelClass}>Features</span>
+            <span className={inputClass.label}>Features</span>
             <div className="space-y-3">
               {fields.map((field, index) => (
                 <div key={field.id} className="flex items-center gap-3">
@@ -286,7 +282,7 @@ export function PlanFormModal({
                   <input
                     placeholder="Write your feature here"
                     aria-label={`Feature ${index + 1}`}
-                    className={cn(fieldClass, "flex-1")}
+                    className={cn(inputClass.input, "flex-1")}
                     {...register(`features.${index}.value` as const)}
                   />
                   <button
@@ -343,17 +339,16 @@ export function PlanFormModal({
             />
           </div>
 
-          <button
+          <CommonButton
             type="submit"
+            size="lg"
+            fullWidth
             disabled={busy}
-            className={cn(brownButton, "h-[52px] w-full text-base")}
+            isLoading={busy}
+            loadingText="Saving..."
           >
-            {busy
-              ? "Saving..."
-              : isEdit
-                ? "Save Changes"
-                : "Save & Send Invitation"}
-          </button>
+            {isEdit ? "Save Changes" : "Save & Send Invitation"}
+          </CommonButton>
         </form>
       </DialogContent>
     </Dialog>

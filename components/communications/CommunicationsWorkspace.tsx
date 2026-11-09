@@ -68,7 +68,6 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
 
   return (
     <div className="space-y-8">
-      {/* Top Banner if Just Sent */}
       {sentAlert && (
         <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center justify-between text-xs animate-in fade-in">
           <div className="flex items-center gap-2">
@@ -83,9 +82,7 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
         </div>
       )}
 
-      {/* Main Grid: Composer & History */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Composer Left Column */}
         <div className="lg:col-span-5 space-y-6">
           <Card className="border-border/80 shadow-xs">
             <CardHeader>
@@ -99,7 +96,6 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSendBroadcast} className="space-y-4">
-                {/* Channel Selector */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Delivery Channel</Label>
                   <div className="grid grid-cols-2 gap-2">
@@ -130,7 +126,6 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
                   </div>
                 </div>
 
-                {/* Target Segment */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Target Audience</Label>
                   <Select value={targetSegment} onValueChange={setTargetSegment}>
@@ -145,7 +140,6 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
                   </Select>
                 </div>
 
-                {/* Subject (for email) */}
                 {channel === 'email' && (
                   <div className="space-y-1.5">
                     <Label className="text-xs">Email Subject Line *</Label>
@@ -159,7 +153,6 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
                   </div>
                 )}
 
-                {/* Message Body */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Broadcast Message Content *</Label>
                   <Textarea
@@ -172,7 +165,6 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
                   />
                 </div>
 
-                {/* Submit button */}
                 <Button
                   type="submit"
                   disabled={isSending}
@@ -186,7 +178,6 @@ export function CommunicationsWorkspace({ initialCampaigns }: CommunicationsWork
           </Card>
         </div>
 
-        {/* Campaign History Right Column */}
         <div className="lg:col-span-7 space-y-4">
           <div>
             <h3 className="text-base font-semibold text-foreground">Dispatched Broadcasts</h3>

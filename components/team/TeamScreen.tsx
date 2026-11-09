@@ -1,8 +1,11 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import { ChevronDown, Plus, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { inputClass } from '@/components/auth/onboarding';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +22,6 @@ import {
   inviteAgencyTeamMember,
   type AgencyTeamMemberRow,
 } from '@/lib/api/agency-dashboard';
-
-const fieldClass =
-  'h-11 w-full rounded-lg border-[#E7E1DA] bg-[#FBF8F5] px-3 text-sm text-[#1F140E] outline-none placeholder:text-[#B3A79C]';
 
 const emptyInvite = {
   fullName: '',
@@ -148,11 +148,10 @@ export function TeamScreen({
   return (
     <AppShell currentRole={role}>
       <div className="space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-4xl font-medium text-[#1F140E]">Team</h1>
-            <p className="mt-1 text-sm text-[#736B66]">Manage team and assign them to your events.</p>
-          </div>
+        <PageHeader
+          title="Team"
+          description="Manage team and assign them to your events."
+        >
           <Button
             type="button"
             onClick={() => setInviteOpen(true)}
@@ -161,7 +160,7 @@ export function TeamScreen({
             <Plus className="mr-1.5 size-4" />
             Invite Member
           </Button>
-        </div>
+        </PageHeader>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Metric value={metrics.owners} label={ownerLabel} />
@@ -180,18 +179,16 @@ export function TeamScreen({
                 className="h-10 rounded-xl border-[#EBE3D9] pl-9 text-sm"
               />
             </div>
-            <select
+            <CommonSelect
               value={eventFilter}
-              onChange={(event) => setEventFilter(event.target.value)}
-              className="h-10 rounded-xl border border-[#EBE3D9] bg-white px-3 text-sm text-[#3F342C]"
-            >
-              <option value="all">All Events</option>
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.title}
-                </option>
-              ))}
-            </select>
+              item={[
+                { label: 'All Events', value: 'all' },
+                ...events.map((event) => ({ label: event.title, value: event.id })),
+              ]}
+              w={180}
+              onValueChange={setEventFilter}
+              className="h-10 rounded-xl border-[#EBE3D9] bg-white text-sm text-[#3F342C]"
+            />
           </div>
 
           {loading && <p className="p-6 text-sm text-[#736B66]">Loading team…</p>}
@@ -322,19 +319,24 @@ export function TeamScreen({
                 value={invite.fullName}
                 onChange={(event) => setInvite((current) => ({ ...current, fullName: event.target.value }))}
                 placeholder="Enter full name"
-                className={fieldClass}
+                className={inputClass.input}
               />
             </Field>
             <Field label="Role">
-              <select
-                value={invite.role}
-                onChange={(event) => setInvite((current) => ({ ...current, role: event.target.value }))}
-                className={fieldClass}
-              >
-                <option value="">Select Role</option>
-                <option value="Admin">Admin</option>
-                <option value="Gate Staff">Gate Staff</option>
-              </select>
+              <CommonSelect
+                value={invite.role || '__empty__'}
+                item={[
+                  { label: 'Select Role', value: '__empty__' },
+                  { label: 'Admin', value: 'Admin' },
+                  { label: 'Gate Staff', value: 'Gate Staff' },
+                ]}
+                w="100%"
+                onValueChange={(value) => {
+                  const next = value === '__empty__' ? '' : value;
+                  setInvite((current) => ({ ...current, role: next }));
+                }}
+                className={inputClass.input}
+              />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Email Address *">
@@ -343,7 +345,7 @@ export function TeamScreen({
                   value={invite.email}
                   onChange={(event) => setInvite((current) => ({ ...current, email: event.target.value }))}
                   placeholder="Enter your email address"
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </Field>
               <Field label="Phone Number">
@@ -351,23 +353,21 @@ export function TeamScreen({
                   value={invite.phone}
                   onChange={(event) => setInvite((current) => ({ ...current, phone: event.target.value }))}
                   placeholder="+234"
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </Field>
             </div>
             <Field label="Assign to Event (optional)">
-              <select
-                value={invite.eventId}
-                onChange={(event) => setInvite((current) => ({ ...current, eventId: event.target.value }))}
-                className={fieldClass}
-              >
-                <option value="">Do not assign yet</option>
-                {events.map((event) => (
-                  <option key={event.id} value={event.id}>
-                    {event.title}
-                  </option>
-                ))}
-              </select>
+              <CommonSelect
+                value={invite.eventId || '__none__'}
+                item={[
+                  { label: 'Do not assign yet', value: '__none__' },
+                  ...events.map((event) => ({ label: event.title, value: event.id })),
+                ]}
+                w="100%"
+                onValueChange={(value) => setInvite((current) => ({ ...current, eventId: value === '__none__' ? '' : value }))}
+                className={inputClass.input}
+              />
             </Field>
             <button
               type="button"
@@ -415,18 +415,16 @@ export function TeamScreen({
             </DialogTitle>
           </DialogHeader>
           <Field label="Event">
-            <select
-              value={assignEventId}
-              onChange={(event) => setAssignEventId(event.target.value)}
-              className={fieldClass}
-            >
-              <option value="">Select an event</option>
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.title}
-                </option>
-              ))}
-            </select>
+            <CommonSelect
+              value={assignEventId || '__none__'}
+              item={[
+                { label: 'Select an event', value: '__none__' },
+                ...events.map((event) => ({ label: event.title, value: event.id })),
+              ]}
+              w="100%"
+              onValueChange={(value) => setAssignEventId(value === '__none__' ? '' : value)}
+              className={inputClass.input}
+            />
           </Field>
           <button
             type="button"

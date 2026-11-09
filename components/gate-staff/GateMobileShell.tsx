@@ -49,7 +49,6 @@ export function GateMobileShell({
     return () => window.clearInterval(timer);
   }, [pathname]);
 
-  // Determine current tab if not specified
   const current = activeTab || (
     pathname.includes('/scanner') || pathname.includes('/verify') || pathname.includes('/guest')
       ? 'checkin'
@@ -64,10 +63,8 @@ export function GateMobileShell({
 
   return (
     <div className="min-h-screen bg-[#F0EDE6] sm:py-6 flex justify-center items-start">
-      {/* Mobile container - strictly styled like a native mobile phone screen */}
       <div className="w-full max-w-[430px] min-h-screen sm:min-h-[880px] sm:max-h-[920px] bg-[#FBFAF6] sm:rounded-[36px] sm:shadow-2xl flex flex-col relative overflow-hidden sm:border sm:border-[#E8E4DC]">
         
-        {/* App Bar (when enabled) */}
         {showHeader && (
           <header className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-[#F0ECE4]/60 bg-[#FBFAF6]/90 backdrop-blur-md sticky top-0 z-30">
             <Link href="/gate-staff" className="flex items-center gap-2.5">
@@ -94,17 +91,14 @@ export function GateMobileShell({
           </header>
         )}
 
-        {/* Scrollable Viewport Content */}
         <main className="flex-1 overflow-y-auto px-5 py-5 pb-24 space-y-4">
           {children}
         </main>
 
-        {/* Bottom Tab Bar matching mockup */}
         <nav 
           aria-label="Gate staff navigation"
           className="absolute bottom-0 inset-x-0 bg-[#FFFFFF] border-t border-[#ECE7DE] py-2 px-3 flex items-center justify-around z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]"
         >
-          {/* My Events */}
           <Link
             href="/gate-staff"
             className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl min-w-[72px] transition-colors ${
@@ -119,7 +113,6 @@ export function GateMobileShell({
             <span className="text-[11px] leading-tight font-medium">My events</span>
           </Link>
 
-          {/* Check-In */}
           <Link
             href="/gate-staff/checkin"
             className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl min-w-[72px] transition-colors ${
@@ -134,7 +127,6 @@ export function GateMobileShell({
             <span className="text-[11px] leading-tight font-medium">Check-In</span>
           </Link>
 
-          {/* Check-in History */}
           <Link
             href="/gate-staff/history"
             className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl min-w-[72px] transition-colors ${
@@ -149,7 +141,6 @@ export function GateMobileShell({
             <span className="text-[11px] leading-tight font-medium whitespace-nowrap">Check-in History</span>
           </Link>
 
-          {/* My Profile */}
           <Link
             href="/gate-staff/profile"
             className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl min-w-[72px] transition-colors ${

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OrganizerBreakdownChart } from '@/components/admin/OrganizerBreakdownChart';
@@ -78,14 +79,12 @@ export function AdminDashboard() {
   return (
     <AppShell currentRole="admin">
       <div className="space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-serif font-semibold tracking-tight text-foreground">
-            Platform Dashboard
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Platform-wide overview · {today}
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Platform Dashboard"
+          subtitle={`Platform-wide overview · ${today}`}
+        />
 
         {error && (
           <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">

@@ -10,11 +10,6 @@ function GateStaffVerificationPageInner() {
   const searchParams = useSearchParams();
   const statusParam = searchParams.get('status') || 'valid';
 
-  // State to toggle between the 4 verification screens:
-  // - 'valid': 06 · Guest verification.png
-  // - 'not_confirmed': 06 · Guest verification-1.png
-  // - 'already_checked_in': 06 · Guest verification-2.png
-  // - 'unverified': 06 · Guest verification-3.png
   type VerificationType =
     | 'valid'
     | 'not_confirmed'
@@ -57,7 +52,6 @@ function GateStaffVerificationPageInner() {
     <GateMobileShell showHeader={false} activeTab="checkin">
       <div className="space-y-4 pt-1">
         
-        {/* Top Back Header */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -72,7 +66,6 @@ function GateStaffVerificationPageInner() {
           </h1>
         </div>
 
-        {/* Guest Details White Card */}
         <div className="bg-white rounded-3xl p-5 border border-[#EAE5DC] shadow-[0_2px_8px_rgba(0,0,0,0.02)] space-y-3.5">
           <h2 className="font-semibold text-lg text-[#1F1916]">
             {guest.name}
@@ -121,9 +114,6 @@ function GateStaffVerificationPageInner() {
           </div>
         </div>
 
-        {/* Verification Status Cards */}
-
-        {/* Case 1: Valid & Ready for Check-in */}
         {verificationType === 'valid' && (
           <div className="space-y-4">
             <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#ECE7DE] space-y-1.5">
@@ -157,7 +147,6 @@ function GateStaffVerificationPageInner() {
           </div>
         )}
 
-        {/* Case 2: RSVP Not Confirmed (Mockup 06-1) */}
         {verificationType === 'not_confirmed' && (
           <div className="space-y-4">
             <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#ECE7DE] space-y-1.5">
@@ -203,7 +192,6 @@ function GateStaffVerificationPageInner() {
           </div>
         )}
 
-        {/* Case 3: Already Checked In (Mockup 06-2) */}
         {verificationType === 'already_checked_in' && (
           <div className="space-y-4">
             <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#ECE7DE] space-y-1.5">
@@ -261,7 +249,6 @@ function GateStaffVerificationPageInner() {
           </div>
         )}
 
-        {/* Case 4: Guest could not be verified (Mockup 06-3) */}
         {verificationType === 'unverified' && (
           <div className="space-y-4">
             <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#ECE7DE] space-y-1.5">
@@ -304,7 +291,6 @@ function GateStaffVerificationPageInner() {
           </div>
         )}
 
-        {/* State preview switcher pill buttons */}
         <div className="pt-2 flex flex-wrap gap-1.5 border-t border-[#ECE7DE]">
           <span className="text-[10px] text-[#80756C] w-full block">Preview verification state:</span>
           <button

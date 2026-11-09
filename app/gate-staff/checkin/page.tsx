@@ -46,7 +46,6 @@ function GateStaffCheckinHomePageInner() {
   return (
     <GateMobileShell showHeader={false} activeTab="checkin">
       <div className="space-y-6 pt-1">
-        {/* Top Back Link */}
         <Link
           href="/gate-staff"
           className="inline-flex items-center gap-1 text-sm font-medium text-[#7A3B18] hover:underline"
@@ -55,7 +54,6 @@ function GateStaffCheckinHomePageInner() {
           <span>My Events</span>
         </Link>
 
-        {/* Event Header */}
         <div className="space-y-1">
           <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-[#1F1916] leading-snug">
             {event?.title || 'No assigned event'}
@@ -65,7 +63,6 @@ function GateStaffCheckinHomePageInner() {
           </p>
         </div>
 
-        {/* Live Pill */}
         <div className="flex items-center gap-2">
           <span className={`w-2.5 h-2.5 rounded-full inline-block ${event?.status === 'Live' ? 'bg-[#2A6E3B] animate-pulse' : 'bg-[#8C4B24]'}`} />
           <span className={`text-xs font-semibold ${event?.status === 'Live' ? 'text-[#2A6E3B]' : 'text-[#8C4B24]'}`}>
@@ -73,7 +70,6 @@ function GateStaffCheckinHomePageInner() {
           </span>
         </div>
 
-        {/* 3 Metric Cards matching mockup 04 */}
         <div className="grid grid-cols-3 gap-2.5">
           <div className="bg-white rounded-2xl p-3 border border-[#EAE5DC] shadow-[0_2px_6px_rgba(0,0,0,0.02)]">
             <span className="text-[11px] text-[#80756C] block font-normal leading-tight mb-2">
@@ -103,9 +99,7 @@ function GateStaffCheckinHomePageInner() {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="space-y-3 pt-1">
-          {/* Brown Button: Scan Guest QR */}
           <button
             type="button"
             onClick={() => router.push(`/gate-staff/scanner?eventId=${event?.id || ''}&gate=${encodeURIComponent(event?.gate || 'Gate 1')}&staffId=${workspace?.staff.profileId || ''}`)}
@@ -114,7 +108,6 @@ function GateStaffCheckinHomePageInner() {
             Scan Guest QR
           </button>
 
-          {/* Dark Charcoal Button: Search Guest */}
           <button
             type="button"
             onClick={() => router.push(`/gate-staff/search?eventId=${event?.id || ''}`)}
@@ -124,7 +117,6 @@ function GateStaffCheckinHomePageInner() {
           </button>
         </div>
 
-        {/* Recent Check-ins */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-sm text-[#1F1916]">

@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   X,
 } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,6 @@ export function IndividualPackagePricing() {
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
 
-  // Card details state
   const [cardName, setCardName] = React.useState('Omolara Eniola');
   const [cardNumber, setCardNumber] = React.useState('4012 8821 9022 3456');
   const [expiry, setExpiry] = React.useState('09/28');
@@ -83,19 +83,17 @@ export function IndividualPackagePricing() {
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
-      {/* Top Banner / Heading matching Pricing.png */}
-      <div className="text-center space-y-2 max-w-2xl mx-auto">
-        <h1 className="text-2xl md:text-3xl font-serif font-bold text-foreground tracking-tight">
-          Tailored Single-Event Package Pricing
-        </h1>
-        <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-          Transparent pricing with no subscription commitments. Pick the pass that suits your event scale and guest protocol.
-        </p>
-      </div>
+      <CommonHeader
+        variant="section"
+        as="h1"
+        className="mx-auto max-w-2xl items-center text-center"
+        titleClassName="text-center"
+        subtitleClassName="text-center"
+        title="Tailored Single-Event Package Pricing"
+        subtitle="Transparent pricing with no subscription commitments. Pick the pass that suits your event scale and guest protocol."
+      />
 
-      {/* 2 Plans Cards side-by-side matching Pricing.png */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-        {/* Plan 1: Essential Event Pass */}
         <div
           onClick={() => setSelectedPlan('essential')}
           className={`rounded-3xl p-6 md:p-8 border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
@@ -152,7 +150,6 @@ export function IndividualPackagePricing() {
           </div>
         </div>
 
-        {/* Plan 2: Grand Celebration Pass (Popular) */}
         <div
           onClick={() => setSelectedPlan('celebration')}
           className={`rounded-3xl p-6 md:p-8 border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
@@ -161,7 +158,6 @@ export function IndividualPackagePricing() {
               : 'border-border bg-card hover:border-border/80 shadow-xs'
           }`}
         >
-          {/* Most Popular Badge */}
           <div className="absolute -top-3.5 right-6 px-3 py-1 rounded-full bg-[#6E3B1C] text-white text-[10px] font-bold tracking-wide uppercase shadow-md">
             Most Popular
           </div>
@@ -210,7 +206,6 @@ export function IndividualPackagePricing() {
         </div>
       </div>
 
-      {/* Footer Navigation Bar matching Pricing.png */}
       <div className="flex items-center justify-between pt-6 border-t border-border">
         <Button
           asChild
@@ -233,7 +228,6 @@ export function IndividualPackagePricing() {
         </Button>
       </div>
 
-      {/* Payment Checkout Modal matching Card iNFO.png */}
       <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
         <DialogContent className="sm:max-w-md p-6">
           {!isSuccess ? (
@@ -247,7 +241,6 @@ export function IndividualPackagePricing() {
                 </DialogDescription>
               </DialogHeader>
 
-              {/* Order Summary Box */}
               <div className="p-4 rounded-2xl bg-muted/50 border border-border flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-xs text-foreground">
@@ -262,7 +255,6 @@ export function IndividualPackagePricing() {
                 </div>
               </div>
 
-              {/* Payment Details Form */}
               <form onSubmit={handlePay} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Cardholder Full Name</Label>
@@ -316,7 +308,6 @@ export function IndividualPackagePricing() {
                   </div>
                 </div>
 
-                {/* Security Footnote */}
                 <div className="flex items-center gap-2 pt-1 text-[11px] text-muted-foreground">
                   <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>Secured by 256-bit SSL encryption & PCI-DSS certified gateway.</span>

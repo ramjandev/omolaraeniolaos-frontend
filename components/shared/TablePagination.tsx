@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import CommonSelect from '@/components/common/CommonSelect';
 import { cn } from '@/lib/utils';
 
 interface TablePaginationProps {
@@ -37,18 +38,14 @@ export function TablePagination({
     <div className="flex flex-col gap-3 px-1 pt-3 text-xs text-[#3F342D] sm:flex-row sm:items-center sm:justify-between dark:text-muted-foreground">
       <div className="flex items-center gap-2">
         <span>Rows per page</span>
-        <select
+        <CommonSelect
           aria-label="Rows per page"
-          value={pageSize}
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="h-7 rounded-md border border-[#E3DED8] bg-white px-1.5 text-xs dark:border-border dark:bg-card"
-        >
-          {pageSizes.map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </select>
+          value={String(pageSize)}
+          item={pageSizes.map((size) => ({ label: String(size), value: String(size) }))}
+          w={72}
+          onValueChange={(size) => onPageSizeChange(Number(size))}
+          className="h-7 rounded-md border-[#E3DED8] bg-white px-1.5 text-xs dark:border-border dark:bg-card"
+        />
         <span>
           showing {from}–{to} of {total} rows
         </span>

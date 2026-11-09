@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { PlanCard, PlanCardGrid, formatPlanPrice, planPriceSuffix } from '@/components/plans/PlanCard';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { SegmentedTabs } from '@/components/shared/SegmentedTabs';
 import { useStartPlanPayment } from '@/lib/payments/startPlanPayment';
 import { ANNUAL_DISCOUNT, planChargeTotal, planUnitPrice, supportsAnnualBilling } from '@/lib/planPricing';
@@ -104,12 +105,15 @@ export function AgencyPricingPlans() {
   return (
     <div className="mx-auto max-w-5xl space-y-10 py-2">
       <div className="mx-auto max-w-2xl space-y-3 text-center">
-        <h1 className="font-serif text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-          Choose A Plan That Fits Your Agency
-        </h1>
-        <p className="text-xs leading-relaxed text-muted-foreground md:text-sm">
-          Simple transparent pricing. Upgrade or downgrade anytime as your team grows.
-        </p>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          className="items-center text-center"
+          titleClassName="text-center"
+          subtitleClassName="text-center"
+          title="Choose A Plan That Fits Your Agency"
+          subtitle="Simple transparent pricing. Upgrade or downgrade anytime as your team grows."
+        />
 
         {showCycleToggle && (
           <div className="flex justify-center pt-2">

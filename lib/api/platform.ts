@@ -1,3 +1,5 @@
+import { store } from '@/store/store';
+
 const API_ROOT =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -7,7 +9,9 @@ function authHeaders(): HeadersInit {
   };
   if (typeof window !== 'undefined') {
     const token =
-      localStorage.getItem('accessToken') || localStorage.getItem('token');
+      store.getState().auth.accessToken ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('token');
     if (token) headers.Authorization = `Bearer ${token}`;
   }
   return headers;

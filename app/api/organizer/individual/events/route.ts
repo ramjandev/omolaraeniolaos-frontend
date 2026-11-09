@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
     const data = await backendRes.json();
     return NextResponse.json(data);
   } catch (err: any) {
-    // Fallback data if backend is currently launching
     return NextResponse.json({
       success: true,
       data: {

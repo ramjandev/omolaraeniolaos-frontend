@@ -6,8 +6,11 @@ import {
   Check,
   CheckCircle2,
   AlertTriangle,
+  Eye,
+  EyeOff,
   X,
 } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +30,7 @@ import {
   useGetMeQuery,
   useLogoutOtherDevicesMutation,
   useSaveNotificationPreferencesMutation,
+  useUpdateAvatarMutation,
   useUpdateProfileMutation,
 } from '@/store/Auth/authApi';
 import { logout, setCredentials } from '@/store/Auth/authSlice';
@@ -46,6 +50,7 @@ export function SettingsScreen({
   const { data: profile, isLoading: isProfileLoading } = useGetMeQuery();
   const { data: accountSettings } = useGetAccountSettingsQuery();
   const [updateProfile, { isLoading: isSavingProfile }] = useUpdateProfileMutation();
+  const [updateAvatar, { isLoading: isSavingAvatar }] = useUpdateAvatarMutation();
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const [saveNotificationPreferences, { isLoading: isSavingNotifications }] =
     useSaveNotificationPreferencesMutation();
@@ -56,11 +61,12 @@ export function SettingsScreen({
   const emailVerified = accountSettings?.data?.emailVerified === true;
   const emailStatusKnown = accountSettings?.data != null;
 
-  const [activeTab, setActiveTab] = React.useState<'profile' | 'notifications' | 'security'>('profile');
+  const [activeTab, setActiveTab] = React.useState<
+    'profile' | 'notifications' | 'password' | 'security'
+  >('profile');
   const [showSavedBanner, setShowSavedBanner] = React.useState(false);
   const [bannerMessage, setBannerMessage] = React.useState('Changes saved successfully');
 
-  // Personal Information
   const [avatarUrl, setAvatarUrl] = React.useState(DEMO_AVATAR);
   const [fullName, setFullName] = React.useState('');
   const [email, setEmail] = React.useState('');
@@ -72,10 +78,9 @@ export function SettingsScreen({
     setFullName(user.fullName ?? '');
     setEmail(user.email ?? '');
     setPhone(user.phone ?? '');
-    if (user.avatarUrl) setAvatarUrl(user.avatarUrl);
+    setAvatarUrl((current) => user.avatarUrl || (current.includes('res.cloudinary.com') ? current : DEMO_AVATAR));
   }, [user]);
 
-  // Notification Preferences
   const [notifications, setNotifications] = React.useState({
     rsvpUpdates: true,
     guestReminders: true,
@@ -89,13 +94,14 @@ export function SettingsScreen({
     setNotifications(saved);
   }, [accountSettings]);
 
-  // Modal states
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
   const [currentPassword, setCurrentPassword] = React.useState('');
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [isChangingPassword, setIsChangingPassword] = React.useState(false);
   const [passwordError, setPasswordError] = React.useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = React.useState(false);
@@ -146,17 +152,33 @@ export function SettingsScreen({
       return;
     }
     try {
-      const uploaded = await uploadMedia(file);
       setProfileError('');
+      const uploaded = await uploadMedia(file);
       setAvatarUrl(uploaded.url);
+      const response = await updateAvatar({ avatarUrl: uploaded.url }).unwrap();
+      if (accessToken && response.data) {
+        dispatch(setCredentials({ accessToken, user: response.data }));
+      }
+      setBannerMessage('Profile picture saved');
+      setShowSavedBanner(true);
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'The profile picture could not be uploaded.');
+      const message = getApiErrorMessage(err, 'The profile picture could not be saved.');
+      setProfileError(
+        message === 'Unauthorized'
+          ? 'Sign in again, then upload the picture so it stays after reload.'
+          : message,
+      );
     }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
+    setShowSavedBanner(false);
+    if (!currentPassword.trim()) {
+      setPasswordError('Enter your current password.');
+      return;
+    }
     if (newPassword.length < 8) {
       setPasswordError('New password must be at least 8 characters.');
       return;
@@ -167,23 +189,28 @@ export function SettingsScreen({
     }
     setIsChangingPassword(true);
     try {
-      const response = await changePassword({ currentPassword, newPassword }).unwrap();
+      const response = await changePassword({
+        currentPassword,
+        newPassword,
+      }).unwrap();
       if (response.data?.accessToken) {
-        dispatch(setCredentials({
-          accessToken: response.data.accessToken,
-          refreshToken: response.data.refreshToken,
-          user,
-        }));
+        dispatch(
+          setCredentials({
+            accessToken: response.data.accessToken,
+            refreshToken: response.data.refreshToken,
+            user,
+          }),
+        );
       }
-      setIsPasswordModalOpen(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setBannerMessage('Password changed successfully');
       setShowSavedBanner(true);
     } catch (error: unknown) {
-      const apiError = error as { data?: { message?: string } };
-      setPasswordError(apiError.data?.message || 'Password could not be changed.');
+      setPasswordError(
+        getApiErrorMessage(error, 'Password could not be changed.'),
+      );
     } finally {
       setIsChangingPassword(false);
     }
@@ -220,59 +247,46 @@ export function SettingsScreen({
   return (
     <AppShell currentRole={role}>
       <div className="w-full space-y-6">
-        {/* Top Header matching Figma: "Settings" & subtitle */}
-        <div>
-          <h1 className="font-serif text-3xl md:text-4xl font-normal text-[#1F140E] dark:text-[#FBF8F5] tracking-tight">
-            Settings
-          </h1>
-          <p className="text-sm text-[#736B66] dark:text-muted-foreground mt-1">
-            Manage your account and event preferences.
-          </p>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Settings"
+          subtitle="Manage your account and event preferences."
+        />
+
+        <div className="flex items-center gap-6 border-b border-[#EBE3D9] dark:border-border/80 overflow-x-auto">
+          {(
+            [
+              { id: 'profile', label: 'Profile' },
+              { id: 'notifications', label: 'Notifications' },
+              { id: 'password', label: 'Password' },
+              { id: 'security', label: 'Security' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id);
+                setShowSavedBanner(false);
+                setPasswordError('');
+                setProfileError('');
+              }}
+              className={`pb-3 text-xs transition-colors relative whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'text-[#1F140E] dark:text-foreground font-semibold border-b-2 border-[#8C4B24]'
+                  : 'text-[#736B66] dark:text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Tabs Bar matching Figma: Profile, Notifications, Security */}
-        <div className="flex items-center gap-6 border-b border-[#EBE3D9] dark:border-border/80">
-          <button
-            type="button"
-            onClick={() => setActiveTab('profile')}
-            className={`pb-3 text-xs transition-colors relative ${
-              activeTab === 'profile'
-                ? 'text-[#1F140E] dark:text-foreground font-semibold border-b-2 border-[#8C4B24]'
-                : 'text-[#736B66] dark:text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Profile
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('notifications')}
-            className={`pb-3 text-xs transition-colors relative ${
-              activeTab === 'notifications'
-                ? 'text-[#1F140E] dark:text-foreground font-semibold border-b-2 border-[#8C4B24]'
-                : 'text-[#736B66] dark:text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Notifications
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('security')}
-            className={`pb-3 text-xs transition-colors relative ${
-              activeTab === 'security'
-                ? 'text-[#1F140E] dark:text-foreground font-semibold border-b-2 border-[#8C4B24]'
-                : 'text-[#736B66] dark:text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Security
-          </button>
-        </div>
-
-        {/* Tab 1: Profile (Personal Information) */}
         {activeTab === 'profile' && (
           <div
             className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-6 md:p-8 shadow-xs space-y-6"
           >
-          {/* Changes Saved Banner matching Figma screenshot */}
           {showSavedBanner && (
             <div className="p-3 px-4 rounded-xl border border-[#C8E6C9] dark:border-[#2E7D32]/40 bg-[#F1F8E9]/80 dark:bg-[#2E7D32]/10 text-[#2E7D32] dark:text-[#81C784] text-xs flex items-center justify-between gap-2 transition-all">
               <div className="flex items-center gap-2">
@@ -289,12 +303,10 @@ export function SettingsScreen({
             </div>
           )}
 
-          {/* Section Title */}
           <h2 className="font-serif text-xl md:text-2xl font-normal text-[#1F140E] dark:text-foreground">
             Personal Information
           </h2>
 
-          {/* Profile Picture Row */}
           <div className="flex items-center gap-4">
             <div className="relative w-16 h-16 rounded-full overflow-hidden border border-[#EBE3D9] shrink-0 bg-[#FAF8F5]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -313,6 +325,7 @@ export function SettingsScreen({
                   id="avatar-upload-input"
                   type="file"
                   accept="image/*"
+                  disabled={isSavingAvatar}
                   onChange={handleAvatarChange}
                   className="hidden"
                 />
@@ -323,15 +336,13 @@ export function SettingsScreen({
                 Profile Picture
               </div>
               <div className="text-[11px] text-[#736B66] dark:text-muted-foreground mt-0.5">
-                JPG, GIF or PNG. Max size of 800K.
+                JPG, GIF, or PNG. Max size of 5MB.
               </div>
             </div>
           </div>
 
-          {/* Form Inputs Grid */}
           <form onSubmit={handleSavePersonal} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Full Name */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-[#1F140E] dark:text-foreground">
                   Full Name <span className="text-red-500">*</span>
@@ -346,7 +357,6 @@ export function SettingsScreen({
                 />
               </div>
 
-              {/* Email Address */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-[#1F140E] dark:text-foreground">
                   Email Address <span className="text-red-500">*</span>
@@ -362,7 +372,6 @@ export function SettingsScreen({
                 />
               </div>
 
-              {/* Phone Number */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-[#1F140E] dark:text-foreground">
                   Phone Number <span className="text-red-500">*</span>
@@ -394,12 +403,10 @@ export function SettingsScreen({
         </div>
       )}
 
-      {/* Tab 2: Notification Preferences */}
       {activeTab === 'notifications' && (
         <div
           className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-6 md:p-8 shadow-xs space-y-6"
         >
-          {/* Changes Saved Banner */}
           {showSavedBanner && (
             <div className="p-3 px-4 rounded-xl border border-[#C8E6C9] dark:border-[#2E7D32]/40 bg-[#F1F8E9]/80 dark:bg-[#2E7D32]/10 text-[#2E7D32] dark:text-[#81C784] text-xs flex items-center justify-between gap-2 transition-all">
               <div className="flex items-center gap-2">
@@ -416,15 +423,12 @@ export function SettingsScreen({
             </div>
           )}
 
-          {/* Section Title */}
           <h2 className="font-serif text-xl md:text-2xl font-normal text-[#1F140E] dark:text-foreground">
             Notification Preferences
           </h2>
 
-          {/* Toggle Items */}
           <form onSubmit={handleSaveNotifications} className="space-y-6">
             <div className="divide-y divide-[#EBE3D9]/60 dark:divide-border/60">
-              {/* RSVP Updates */}
               <div className="py-4 flex items-center justify-between gap-4 first:pt-0">
                 <div>
                   <div className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
@@ -443,7 +447,6 @@ export function SettingsScreen({
                 />
               </div>
 
-              {/* Guest Reminders */}
               <div className="py-4 flex items-center justify-between gap-4">
                 <div>
                   <div className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
@@ -462,7 +465,6 @@ export function SettingsScreen({
                 />
               </div>
 
-              {/* Event Updates */}
               <div className="py-4 flex items-center justify-between gap-4">
                 <div>
                   <div className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
@@ -481,7 +483,6 @@ export function SettingsScreen({
                 />
               </div>
 
-              {/* Billing Notifications */}
               <div className="py-4 flex items-center justify-between gap-4 last:pb-0">
                 <div>
                   <div className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
@@ -516,12 +517,8 @@ export function SettingsScreen({
         </div>
       )}
 
-      {/* Tab 3: Account Security */}
-      {activeTab === 'security' && (
-        <div
-          className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-6 md:p-8 shadow-xs space-y-6"
-        >
-          {/* Changes Saved Banner */}
+      {activeTab === 'password' && (
+        <div className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-6 md:p-8 shadow-xs space-y-6">
           {showSavedBanner && (
             <div className="p-3 px-4 rounded-xl border border-[#C8E6C9] dark:border-[#2E7D32]/40 bg-[#F1F8E9]/80 dark:bg-[#2E7D32]/10 text-[#2E7D32] dark:text-[#81C784] text-xs flex items-center justify-between gap-2 transition-all">
               <div className="flex items-center gap-2">
@@ -538,32 +535,166 @@ export function SettingsScreen({
             </div>
           )}
 
-          {/* Section Title */}
+          <div>
+            <h2 className="font-serif text-xl md:text-2xl font-normal text-[#1F140E] dark:text-foreground">
+              Change Password
+            </h2>
+            <p className="text-[11px] text-[#736B66] dark:text-muted-foreground mt-1">
+              Update your account password. You will stay signed in on this device.
+            </p>
+          </div>
+
+          <form onSubmit={handleChangePassword} className="space-y-5 max-w-md">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1F140E] dark:text-foreground">
+                Current Password <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  required
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="Enter current password"
+                  className="rounded-xl border-[#EBE3D9] dark:border-border/80 text-xs py-2 pr-10 bg-white dark:bg-card"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#736B66] hover:text-[#1F140E]"
+                  aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showCurrentPassword ? (
+                    <Eye className="w-4 h-4" />
+                  ) : (
+                    <EyeOff className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1F140E] dark:text-foreground">
+                New Password <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  required
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Min. 8 characters"
+                  className="rounded-xl border-[#EBE3D9] dark:border-border/80 text-xs py-2 pr-10 bg-white dark:bg-card"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#736B66] hover:text-[#1F140E]"
+                  aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showNewPassword ? (
+                    <Eye className="w-4 h-4" />
+                  ) : (
+                    <EyeOff className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1F140E] dark:text-foreground">
+                Confirm New Password <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  required
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Repeat new password"
+                  className="rounded-xl border-[#EBE3D9] dark:border-border/80 text-xs py-2 pr-10 bg-white dark:bg-card"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#736B66] hover:text-[#1F140E]"
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? (
+                    <Eye className="w-4 h-4" />
+                  ) : (
+                    <EyeOff className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {passwordError && (
+              <p className="text-xs text-red-600">{passwordError}</p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={
+                isChangingPassword ||
+                !currentPassword ||
+                !newPassword ||
+                !confirmPassword
+              }
+              className="bg-[#241710] hover:bg-[#3D2518] text-white px-6 py-2.5 rounded-xl text-xs font-medium transition-colors shadow-xs"
+            >
+              {isChangingPassword ? 'Updating Password...' : 'Update Password'}
+            </Button>
+          </form>
+        </div>
+      )}
+
+      {activeTab === 'security' && (
+        <div
+          className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-6 md:p-8 shadow-xs space-y-6"
+        >
+          {showSavedBanner && (
+            <div className="p-3 px-4 rounded-xl border border-[#C8E6C9] dark:border-[#2E7D32]/40 bg-[#F1F8E9]/80 dark:bg-[#2E7D32]/10 text-[#2E7D32] dark:text-[#81C784] text-xs flex items-center justify-between gap-2 transition-all">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#2E7D32] dark:text-[#81C784] shrink-0" />
+                <span>{bannerMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSavedBanner(false)}
+                className="text-[#2E7D32] hover:opacity-70 text-xs"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <h2 className="font-serif text-xl md:text-2xl font-normal text-[#1F140E] dark:text-foreground">
             Account Security
           </h2>
 
           <div className="space-y-4">
-            {/* Change Password */}
             <div className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
                   Change Password
                 </div>
                 <div className="text-[11px] text-[#736B66] dark:text-muted-foreground mt-0.5">
-                  Secure your account by choosing a robust passkey.
+                  Update your login password from the Password tab.
                 </div>
               </div>
               <Button
                 type="button"
-                onClick={() => setIsPasswordModalOpen(true)}
+                onClick={() => setActiveTab('password')}
                 className="bg-[#6E3B1C] hover:bg-[#5C3117] text-white px-5 py-2 rounded-xl text-xs font-medium shrink-0 self-start sm:self-auto transition-colors shadow-xs"
               >
-                Change
+                Go to Password
               </Button>
             </div>
 
-            {/* Email Verification Status */}
             <div className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#EBE3D9]/60 dark:border-border/60 pt-4">
               <div>
                 <div className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
@@ -586,7 +717,6 @@ export function SettingsScreen({
               )}
             </div>
 
-            {/* Device Management */}
             <div className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-[#EBE3D9]/60 dark:border-border/60 pt-4">
               <div>
                 <div className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
@@ -606,7 +736,6 @@ export function SettingsScreen({
               </button>
             </div>
 
-            {/* Delete Account Box */}
             <div className="rounded-2xl border border-[#FCA5A5] dark:border-red-900/50 bg-[#FEF2F2] dark:bg-red-950/20 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
               <div>
                 <div className="text-xs font-bold text-[#991B1B] dark:text-red-400">
@@ -628,74 +757,6 @@ export function SettingsScreen({
         </div>
       )}
 
-        {/* Modal: Change Password */}
-        <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
-          <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
-            <DialogHeader className="pb-2">
-              <DialogTitle className="font-serif text-xl font-bold text-[#1F140E] dark:text-foreground">
-                Change Password
-              </DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleChangePassword} className="space-y-4 pt-1">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
-                  Current Password
-                </Label>
-                <Input
-                  required
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
-                  className="rounded-xl border-[#EBE3D9] dark:border-border/80 text-xs py-2"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
-                  New Password
-                </Label>
-                <Input
-                  required
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new passkey (min 8 characters)"
-                  className="rounded-xl border-[#EBE3D9] dark:border-border/80 text-xs py-2"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#1F140E] dark:text-foreground">
-                  Confirm New Password
-                </Label>
-                <Input
-                  required
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat new passkey"
-                  className="rounded-xl border-[#EBE3D9] dark:border-border/80 text-xs py-2"
-                />
-              </div>
-
-              {passwordError && (
-                <p className="text-xs text-red-600">{passwordError}</p>
-              )}
-
-              <Button
-                type="submit"
-                disabled={isChangingPassword || !currentPassword || !newPassword}
-                className="w-full bg-[#6E3B1C] hover:bg-[#5C3117] text-white font-semibold text-xs py-3 rounded-xl transition-colors shadow-xs"
-              >
-                {isChangingPassword ? 'Updating Password...' : 'Save New Password'}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal: Delete Account Confirmation */}
         <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
           <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-red-200 dark:border-red-900/50 shadow-xl">
             <DialogHeader className="pb-2">

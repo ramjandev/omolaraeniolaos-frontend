@@ -11,6 +11,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { OrganizerKind } from '@/lib/organizer';
+import CommonSelect from '@/components/common/CommonSelect';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { Button } from '@/components/ui/button';
 import { EventBreadcrumb } from './shared/EventBreadcrumb';
 import { Input } from '@/components/ui/input';
@@ -107,7 +109,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
   const [isAddSeatingOpen, setIsAddSeatingOpen] = React.useState(false);
   const [expandedTableId, setExpandedTableId] = React.useState<string | null>(null);
 
-  // Form State for Add Seating Modal
   const [seatingName, setSeatingName] = React.useState('');
   const [guestGroup, setGuestGroup] = React.useState<GuestGroup>('General');
   const [zone, setZone] = React.useState('');
@@ -262,16 +263,13 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
             </button>
           </div>
         )}
-        <div>
-          <h1 className="font-serif text-3xl md:text-4xl font-normal text-[#1F140E] dark:text-[#FBF8F5] tracking-tight">
-            Seating & Protocol
-          </h1>
-          <p className="text-sm text-[#736B66] dark:text-muted-foreground mt-1">
-            Set up your event seating, define guest seating rules, and finalize assignments seamlessly.
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Seating & Protocol"
+          subtitle="Set up your event seating, define guest seating rules, and finalize assignments seamlessly."
+        />
 
-        {/* Tab Pill Switcher matching Figma */}
         <div className="inline-flex p-1 bg-[#FAF8F5] dark:bg-muted/40 rounded-2xl border border-[#EBE3D9] dark:border-border/80">
           <button
             type="button"
@@ -297,7 +295,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
           </button>
         </div>
 
-        {/* Tab 1: Seating Setup matching media_1791786489840_0d57195a.png */}
         {activeTab === 'setup' && (
           <div className="space-y-6">
             <div>
@@ -309,7 +306,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
               </p>
             </div>
 
-            {/* 4 Metric Cards matching Figma */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs">
                 <span className="font-serif text-3xl md:text-4xl font-normal text-[#8C4B24]">
@@ -373,17 +369,17 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                 <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2">
                     <SearchField value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search" />
-                    <select
+                    <CommonSelect
                       aria-label="Guest type"
                       value={typeFilter}
-                      onChange={(event) => { setTypeFilter(event.target.value); setPage(1); }}
+                      item={[
+                        { label: 'Guest Type', value: 'all' },
+                        ...TABLE_TYPES.map((type) => ({ label: type, value: type })),
+                      ]}
+                      w={130}
+                      onValueChange={(value) => { setTypeFilter(value); setPage(1); }}
                       className="h-8 rounded-lg border border-[#E8E3DD] bg-white px-2 text-xs text-[#3F342D]"
-                    >
-                      <option value="all">Guest Type</option>
-                      {TABLE_TYPES.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <Button onClick={openAdd} className="h-8 rounded-lg bg-[#241710] px-3 text-xs text-white hover:bg-[#3D2518]">
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -423,16 +419,14 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                           <tr key={table.id}>
                             <td className="px-3 py-2.5 text-[13px] text-[#261710]">{table.name}</td>
                             <td className="px-3 py-2.5">
-                              <select
+                              <CommonSelect
                                 aria-label={`Guest type for ${table.name}`}
                                 value={displayTableType(table.tag)}
-                                onChange={(event) => void changeGroup(table, event.target.value)}
+                                item={TABLE_TYPES.map((type) => ({ label: type, value: type }))}
+                                w={140}
+                                onValueChange={(value) => void changeGroup(table, value)}
                                 className="h-7 rounded-md border border-[#F1DFCB] bg-[#FFF8F0] px-2 text-xs"
-                              >
-                                {TABLE_TYPES.map((type) => (
-                                  <option key={type} value={type}>{type}</option>
-                                ))}
-                              </select>
+                              />
                             </td>
                             <td className="px-3 py-2.5">{String(table.capacity).padStart(2, '0')}</td>
                             <td className="px-3 py-2.5">{String(table.reservedSeats).padStart(2, '0')}</td>
@@ -466,7 +460,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
           </div>
         )}
 
-        {/* Tab 2: Review Assignments matching media_1791786529001_73dcec5e.png */}
         {activeTab === 'review' && (
           <div className="space-y-6">
             <div>
@@ -484,7 +477,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
               </p>
             ) : null}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Left Column: Tables List (8 cols) */}
               <div className="lg:col-span-8 space-y-3">
                 {tables.map((tbl) => {
                   const isExpanded = expandedTableId === tbl.id;
@@ -498,7 +490,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                       key={tbl.id}
                       className="rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card shadow-xs overflow-hidden transition-all"
                     >
-                      {/* Table Header Bar matching Figma */}
                       <div className="p-4 px-5 flex flex-wrap items-center justify-between gap-3 bg-[#FCFAF7] dark:bg-muted/30 border-b border-[#EBE3D9]/60">
                         <div className="flex items-center gap-3">
                           <span className="font-serif text-lg font-bold text-[#8C4B24]">
@@ -531,33 +522,32 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                             </span>
                           </div>
 
-                          <select
+                          <CommonSelect
                             aria-label={`Add a guest to ${tbl.name}`}
-                            value=""
-                            onChange={(e) => {
-                              const guestId = e.target.value;
-                              e.target.value = '';
-                              if (!guestId) return;
+                            value="__add__"
+                            item={[
+                              {
+                                label:
+                                  waitingGuests.length === 0
+                                    ? unassignedGuests.length === 0
+                                      ? 'No unassigned guests'
+                                      : `No ${displayTableType(tbl.tag)} guests waiting`
+                                    : '+ Add Guest',
+                                value: '__add__',
+                              },
+                              ...waitingGuests.map((guest) => ({
+                                label: `${guest.name} · ${guest.partySize || 1} ${Number(guest.partySize) === 1 ? 'seat' : 'seats'}`,
+                                value: guest.id,
+                              })),
+                            ]}
+                            w={160}
+                            onValueChange={(guestId) => {
+                              if (!guestId || guestId === '__add__') return;
                               setExpandedTableId(tbl.id);
                               void placeGuest(guestId, tbl.id);
                             }}
                             className="h-8 rounded-xl border border-[#DED7CC] bg-white px-2.5 text-xs text-[#241710] dark:bg-card"
-                          >
-                            <option value="">+ Add Guest</option>
-                            {waitingGuests.length === 0 ? (
-                              <option value="" disabled>
-                                {unassignedGuests.length === 0
-                                  ? 'No unassigned guests'
-                                  : `No ${displayTableType(tbl.tag)} guests waiting`}
-                              </option>
-                            ) : (
-                              waitingGuests.map((guest) => (
-                                <option key={guest.id} value={guest.id}>
-                                  {guest.name} · {guest.partySize || 1} {Number(guest.partySize) === 1 ? 'seat' : 'seats'}
-                                </option>
-                              ))
-                            )}
-                          </select>
+                          />
 
                           <button
                             type="button"
@@ -575,7 +565,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                         </div>
                       </div>
 
-                      {/* Expanded Table Seats Roster */}
                       {isExpanded && (
                         <div className="p-0 overflow-x-auto">
                           {tbl.seats.length > 0 ? (
@@ -612,25 +601,25 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                                       {seat.seatCode}
                                     </td>
                                     <td className="py-3 px-4 text-right">
-                                      <select
-                                        className="text-[11px] border rounded-lg px-2 py-1 bg-white dark:bg-card text-foreground"
-                                        defaultValue="move"
-                                        onChange={(e) => {
-                                          if (e.target.value && e.target.value !== 'move') {
-                                            void placeGuest(seat.id, e.target.value);
-                                            e.target.value = 'move';
+                                      <CommonSelect
+                                        value="move"
+                                        item={[
+                                          { label: 'Move to...', value: 'move' },
+                                          ...tables
+                                            .filter((t) => t.id !== tbl.id && tableAcceptsGuest(t.tag, seat.guestType))
+                                            .map((t) => ({
+                                              label: `${t.name} · ${displayTableType(t.tag)}`,
+                                              value: t.id,
+                                            })),
+                                        ]}
+                                        w={140}
+                                        onValueChange={(value) => {
+                                          if (value && value !== 'move') {
+                                            void placeGuest(seat.id, value);
                                           }
                                         }}
-                                      >
-                                        <option value="move">Move to... ⌄</option>
-                                        {tables
-                                          .filter((t) => t.id !== tbl.id && tableAcceptsGuest(t.tag, seat.guestType))
-                                          .map((t) => (
-                                            <option key={t.id} value={t.id}>
-                                              {t.name} · {displayTableType(t.tag)}
-                                            </option>
-                                          ))}
-                                      </select>
+                                        className="text-[11px] border rounded-lg px-2 py-1 bg-white dark:bg-card text-foreground"
+                                      />
                                     </td>
                                   </tr>
                                 ))}
@@ -648,7 +637,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                 })}
               </div>
 
-              {/* Right Column: Unassigned Guests (4 cols) matching Figma */}
               <div className="lg:col-span-4 rounded-2xl border border-[#EBE3D9] dark:border-border/80 bg-white dark:bg-card p-5 shadow-xs space-y-4">
                 <h3 className="font-serif text-base font-bold text-[#1F140E] dark:text-foreground">
                   Unassigned Guests ({unassignedGuests.length})
@@ -669,32 +657,31 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                         </div>
                       </div>
 
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            void placeGuest(g.id, e.target.value);
-                            e.target.value = '';
+                      <CommonSelect
+                        value="__assign__"
+                        item={[
+                          {
+                            label:
+                              tables.filter((t) => tableAcceptsGuest(t.tag, g.type || 'General')).length === 0
+                                ? `No ${g.type || 'General'} table`
+                                : 'Assign Seating',
+                            value: '__assign__',
+                          },
+                          ...tables
+                            .filter((t) => tableAcceptsGuest(t.tag, g.type || 'General'))
+                            .map((t) => ({
+                              label: `${t.name} · ${displayTableType(t.tag)} (${Math.max(0, t.capacity - t.reservedSeats - t.assignedCount)} left)`,
+                              value: t.id,
+                            })),
+                        ]}
+                        w={150}
+                        onValueChange={(value) => {
+                          if (value && value !== '__assign__') {
+                            void placeGuest(g.id, value);
                           }
                         }}
-                        className="bg-[#15803D] hover:bg-[#166534] text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg cursor-pointer outline-none"
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Assign Seating ⌄
-                        </option>
-                        {tables.filter((t) => tableAcceptsGuest(t.tag, g.type || 'General')).length === 0 ? (
-                          <option value="" disabled className="text-foreground bg-white">
-                            No {g.type || 'General'} table
-                          </option>
-                        ) : null}
-                        {tables
-                          .filter((t) => tableAcceptsGuest(t.tag, g.type || 'General'))
-                          .map((t) => (
-                          <option key={t.id} value={t.id} className="text-foreground bg-white">
-                            {t.name} · {displayTableType(t.tag)} ({Math.max(0, t.capacity - t.reservedSeats - t.assignedCount)} left)
-                          </option>
-                        ))}
-                      </select>
+                        className="bg-[#15803D] hover:bg-[#166534] text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border-0"
+                      />
                     </div>
                   ))}
 
@@ -709,7 +696,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
           </div>
         )}
 
-        {/* Modal: Add Seating matching uploaded_media_3_1791786558314.png */}
         <Dialog open={isAddSeatingOpen} onOpenChange={setIsAddSeatingOpen}>
           <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-white dark:bg-[#1A110B] border border-[#EBE3D9] dark:border-[#382417] shadow-xl">
             <DialogHeader className="pb-2">
@@ -719,7 +705,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
             </DialogHeader>
 
             <form onSubmit={handleCreateSeating} className="space-y-4 pt-1 text-xs">
-              {/* Seating Name */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
                   Seating Name
@@ -733,21 +718,18 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                 />
               </div>
 
-              {/* Assigned Guest Group & Location/Zone Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
                     Assigned Guest Group
                   </Label>
-                  <select
+                  <CommonSelect
                     value={guestGroup}
-                    onChange={(e) => setGuestGroup(e.target.value as GuestGroup)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-[#FAF8F5]/60 text-foreground focus:outline-none"
-                  >
-                    {TABLE_TYPES.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
+                    item={TABLE_TYPES.map((type) => ({ label: type, value: type }))}
+                    w="100%"
+                    onValueChange={(value) => setGuestGroup(value as GuestGroup)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EBE3D9] dark:border-border/80 bg-[#FAF8F5]/60 text-foreground"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -763,7 +745,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                 </div>
               </div>
 
-              {/* Total Capacity & Reserved Seats Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-[#261710] dark:text-foreground">
@@ -792,7 +773,6 @@ export function EventSeatingWorkspace({ organizer, eventId }: { organizer: Organ
                 </div>
               </div>
 
-              {/* Submit Button matching Figma */}
               <Button
                 type="submit"
                 disabled={saving}

@@ -2,7 +2,6 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { toast } from "react-toastify";
 import type { RootState } from "../store";
 
-// Base URL resolution for Next.js (client & SSR safe)
 const getBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
@@ -19,16 +18,12 @@ const getBaseUrl = (): string => {
   return "http://localhost:5000/api";
 };
 
-// BaseQuery configured with Next.js environment and Redux auth token
 const baseQueryAPI = fetchBaseQuery({
   baseUrl: getBaseUrl(),
-  // credentials: "include",
   prepareHeaders: (headers, { getState }) => {
-    // Read from Redux state (persisted), not cookies directly
     const state = getState() as RootState;
     let token = state?.auth?.accessToken;
 
-    // Client-side fallback to localStorage during initial hydration
     if (!token && typeof window !== "undefined") {
       token =
         localStorage.getItem("token") ||
@@ -54,6 +49,14 @@ const baseQueryWithToasts: typeof baseQueryAPI = async (
   const method =
     typeof args === "object" && "method" in args ? args.method : "GET";
 
+  const requestUrl =
+    typeof args === "object" && "url" in args ? String(args.url) : "";
+  const isAuthPasswordFlow =
+    requestUrl.includes("/auth/forgot-password") ||
+    requestUrl.includes("/auth/reset-password") ||
+    requestUrl.includes("/auth/change-password");
+  const suppressToast = Boolean(options.silent) || isAuthPasswordFlow;
+
   if (method !== "GET") {
     if (
       result?.data &&
@@ -61,7 +64,7 @@ const baseQueryWithToasts: typeof baseQueryAPI = async (
       "message" in result.data
     ) {
       const message = (result.data as { message?: string }).message;
-      if (message && !options.silent) {
+      if (message && !suppressToast) {
         if (typeof window !== "undefined") {
           if (method === "DELETE") {
             toast.warning(message);
@@ -77,19 +80,17 @@ const baseQueryWithToasts: typeof baseQueryAPI = async (
         message?: string;
         error?: string;
       };
-      const requestUrl = typeof args === "object" && "url" in args ? String(args.url) : "";
       const isSessionExpired =
         result.error.status === 401 &&
         errorData?.error === "Unauthorized" &&
         !requestUrl.includes("/auth/login");
 
       if (isSessionExpired) {
-        // Handle logout / session expiry here
         if (typeof window !== "undefined") {
           localStorage.removeItem("token");
           localStorage.removeItem("accessToken");
         }
-      } else {
+      } else if (!suppressToast) {
         if (typeof window !== "undefined") {
           toast.error(
             errorData?.message || "Something went wrong. Please try again.",
@@ -125,6 +126,5 @@ export const baseAPI = createApi({
   endpoints: () => ({}),
 });
 
-// Alias for camelCase backward compatibility
 export const baseApi = baseAPI;
 export default baseAPI;

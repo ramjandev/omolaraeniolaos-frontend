@@ -99,7 +99,6 @@ export function AppHeader({
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-background" />
         </Button>
 
-        {/* Profile Dropdown with Logout Button */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -141,7 +140,6 @@ export function AppHeader({
 
             <DropdownMenuSeparator className="my-1 bg-border/60" />
 
-            {/* Logout Button */}
             <DropdownMenuItem
               onClick={handleLogout}
               className="cursor-pointer rounded-xl text-xs py-2 text-red-600 focus:text-red-600 focus:bg-red-500/10 flex items-center gap-2"

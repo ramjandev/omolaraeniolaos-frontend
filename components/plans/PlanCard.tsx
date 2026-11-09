@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Check, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import CommonButton from "../common/CommonButton";
 export function formatPlanPrice(amount: number) {
   return amount === 0 ? "₦00" : `₦${amount.toLocaleString("en-NG")}`;
 }
@@ -76,7 +76,6 @@ interface PlanCardProps {
   priceSuffix?: string;
   priceNote?: React.ReactNode;
   features: string[];
-  /** Raised white card. Used for the selected, hovered or recommended plan. */
   highlighted?: boolean;
   badge?: React.ReactNode;
   actions?: React.ReactNode;
@@ -84,7 +83,6 @@ interface PlanCardProps {
   ctaTone?: "dark" | "muted";
   ctaDisabled?: boolean;
   ctaPressed?: boolean;
-  /** Without a handler the button renders as a non-interactive preview. */
   onSelect?: () => void;
   onMouseEnter?: () => void;
   className?: string;
@@ -154,19 +152,22 @@ export function PlanCard({
       <p className="mb-3 mt-8 text-base font-medium text-[#1F140E] dark:text-foreground">
         Whats Include
       </p>
+      <div className="pb-4">
       <PlanFeatureList features={features} />
-
+</div>
       <div className="mt-auto">
         {onSelect ? (
-          <button
-            type="button"
+          <CommonButton
+         
             onClick={onSelect}
             disabled={ctaDisabled}
             aria-pressed={ctaPressed}
-            className={ctaClass}
+            className={`w-full!`}
+            variant="black"
+           
           >
             {ctaLabel}
-          </button>
+          </CommonButton>
         ) : (
           <div aria-hidden={ctaTone === "dark"} className={ctaClass}>
             {ctaLabel}

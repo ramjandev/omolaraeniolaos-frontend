@@ -1,8 +1,10 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import Link from 'next/link';
 import { Eye, ChevronDown } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -114,14 +116,12 @@ export default function AdminOrganizersPage() {
   return (
     <AppShell currentRole="admin">
       <div className="space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-serif font-semibold tracking-tight text-foreground">
-            Organizers
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            {counts.all} organizers across the platform
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Organizers"
+          subtitle={`${counts.all} organizers across the platform`}
+        />
 
         {error && (
           <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
@@ -171,35 +171,26 @@ export default function AdminOrganizersPage() {
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative">
-                <select
+                <CommonSelect
                   aria-label="Filter by Status"
                   value={statusFilter}
-                  onChange={(event) => {
-                    setStatusFilter(event.target.value);
-                    setPage(1);
-                  }}
-                  className="appearance-none pl-3 pr-7 py-1.5 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-                >
-                  <option value="All">All Status</option>
-                  <option value="Active">Active</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Suspended">Suspended</option>
-                  <option value="Deactivated">Deactivated</option>
-                </select>
+                  item={[{ label: "All Status", value: "All" }, { label: "Active", value: "Active" }, { label: "Pending", value: "Pending" }, { label: "Suspended", value: "Suspended" }, { label: "Deactivated", value: "Deactivated" }]}
+                  w="100%"
+                  onValueChange={(value) => { setStatusFilter(value);
+                    setPage(1); }}
+                  className="pl-3 pr-7 py-1.5 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                />
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
               </div>
               <div className="relative">
-                <select
+                <CommonSelect
                   aria-label="Filter by Type"
                   value={activeTab}
-                  onChange={(event) => chooseTab(event.target.value as typeof activeTab)}
-                  className="appearance-none pl-3 pr-7 py-1.5 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-                >
-                  <option value="all">All Type</option>
-                  <option value="individual">Individual</option>
-                  <option value="agency">Agency</option>
-                  <option value="venue">Venue</option>
-                </select>
+                  item={[{ label: "All Type", value: "all" }, { label: "Individual", value: "individual" }, { label: "Agency", value: "agency" }, { label: "Venue", value: "venue" }]}
+                  w="100%"
+                  onValueChange={(value) => { chooseTab(value as typeof activeTab); }}
+                  className="pl-3 pr-7 py-1.5 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                />
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
               </div>
             </div>
@@ -291,19 +282,15 @@ export default function AdminOrganizersPage() {
           <div className="px-4 py-3 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>Rows per page</span>
-              <select
-                aria-label="Rows per page"
-                value={String(limit)}
-                onChange={(event) => {
-                  setLimit(Number(event.target.value));
-                  setPage(1);
-                }}
-                className="bg-background border border-border/80 rounded-md px-2 py-1 text-xs text-foreground focus:outline-none"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
+              <CommonSelect
+                  aria-label="Rows per page"
+                  value={String(limit)}
+                  item={[{ label: "10", value: "10" }, { label: "20", value: "20" }, { label: "50", value: "50" }]}
+                  w="100%"
+                  onValueChange={(value) => { setLimit(Number(value));
+                  setPage(1); }}
+                  className="bg-background border border-border/80 rounded-md px-2 py-1 text-xs text-foreground focus:outline-none"
+                />
               <span className="text-muted-foreground ml-2">showing {start}–{end} of {total} rows</span>
             </div>
 

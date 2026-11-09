@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
 import { AppShell } from '@/components/shell/AppShell';
 import { EventBanner } from '@/components/events/shared/EventBanner';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 
 export const metadata = {
   title: 'Dashboard | McEniesVite Individual Organizer',
@@ -54,14 +55,12 @@ export default function OrganizerIndividualDashboardPage() {
   return (
     <AppShell currentRole="organizer_individual">
       <div className="w-full space-y-6">
-        <div className="space-y-1">
-          <h1 className="font-serif text-3xl font-normal tracking-tight text-[#1F140E] md:text-4xl dark:text-[#FBF8F5]">
-            Good Morning, Folashade
-          </h1>
-          <p className="text-sm text-[#736B66] dark:text-muted-foreground">
-            Let&apos;s get your event ready for your guests.
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h1"
+          title="Good Morning, Folashade"
+          subtitle="Let's get your event ready for your guests."
+        />
 
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-12">
           <EventBanner
@@ -101,14 +100,11 @@ export default function OrganizerIndividualDashboardPage() {
 
         <section className="space-y-3 rounded-2xl border border-[#EFE6D8] bg-[#FDFAF3] p-4 shadow-xs md:p-5 dark:border-border dark:bg-card">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="font-sans text-base font-medium text-[#261710] dark:text-foreground">
-                Complete your event setup
-              </h2>
-              <p className="mt-0.5 text-xs text-[#6F6560] dark:text-muted-foreground">
-                Finish the essentials before you start inviting your guests.
-              </p>
-            </div>
+            <CommonHeader
+              variant="card"
+              title="Complete your event setup"
+              subtitle="Finish the essentials before you start inviting your guests."
+            />
             <SetupProgress value={SETUP_PROGRESS} />
           </div>
 
@@ -148,14 +144,11 @@ export default function OrganizerIndividualDashboardPage() {
 
         <section className="space-y-6 rounded-2xl border border-[#E8E3DD] bg-[#F5F3F0] p-4 shadow-xs md:p-5 dark:border-border dark:bg-card">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="font-sans text-base font-medium text-[#261710] dark:text-foreground">
-                Event activity
-              </h2>
-              <p className="mt-0.5 text-xs text-[#6F6560] dark:text-muted-foreground">
-                Recent updates and live guest interactions
-              </p>
-            </div>
+            <CommonHeader
+              variant="card"
+              title="Event activity"
+              subtitle="Recent updates and live guest interactions"
+            />
             <span className="rounded-md border border-[#F6D6BE] bg-[#FFF5EC] px-2 py-1 text-[11px] font-medium text-[#F0A877] dark:border-[#6E3B1C]/40 dark:bg-[#261710]/50 dark:text-[#D4A373]">
               Auto-updating
             </span>

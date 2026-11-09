@@ -7,14 +7,12 @@ import {
   Modal,
   Radio,
   SuccessBody,
-  brownButton,
-  darkButton,
-  fieldClass,
-  labelClass,
+  inputClass,
   naira,
-  outlineButton,
-  titleClass,
-} from "@/components/auth/onboarding-ui";
+} from "@/components/auth/onboarding";
+import CommonButton from "@/components/common/CommonButton";
+import CommonSelect from "@/components/common/CommonSelect";
+import { CommonHeader } from "@/components/shared/CommonHeader";
 import { SignupPlanGrid } from "@/components/plans/SignupPlanGrid";
 import { useGetPlansQuery } from "@/store/Plan/planApi";
 import {
@@ -24,10 +22,8 @@ import {
   supportsAnnualBilling,
 } from "@/lib/planPricing";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
-  ChevronDown,
   Plus,
   Upload,
   X,
@@ -44,7 +40,6 @@ import {
 } from "@/store/Auth/types/authTypes";
 import { toast } from "react-toastify";
 
-/* ───────────────────────── Config ───────────────────────── */
 
 const DASHBOARD_URL = "/organizer/agency";
 
@@ -78,7 +73,6 @@ const ROLE_PILL: Record<Role, string> = {
 
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-/* ───────────────────────── Small pieces ───────────────────────── */
 
 function StepBadge({ n }: { n: number }) {
   return (
@@ -97,13 +91,9 @@ function StepFooter({
 }) {
   return (
     <div className="mt-8 flex items-center justify-between border-t border-[#EAE4DA] pt-5">
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-2 text-[17px] font-medium text-[#3A2C25] hover:text-[#7A3B18] transition-colors"
-      >
-        <ArrowLeft className="h-5 w-5" /> Back
-      </button>
+      <CommonButton type="button" variant="outline" showLeftIcon onClick={onBack}>
+        Back
+      </CommonButton>
       {children}
     </div>
   );
@@ -113,16 +103,13 @@ function ContinueButton({
   children = "Continue",
   type = "submit",
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: Omit<React.ComponentProps<typeof CommonButton>, "children"> & {
+  children?: React.ReactNode;
+}) {
   return (
-    <button
-      type={type}
-      className={`${brownButton} h-[52px] px-7 text-[19px] group`}
-      {...rest}
-    >
-      {children}{" "}
-      <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-    </button>
+    <CommonButton type={type} size="lg" showDefaultIcon {...rest}>
+      {children}
+    </CommonButton>
   );
 }
 
@@ -160,53 +147,6 @@ function Chip({
   );
 }
 
-function Select({
-  id,
-  value,
-  onChange,
-  options,
-  placeholder,
-  required,
-  white,
-}: {
-  id: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: readonly string[];
-  placeholder?: string;
-  required?: boolean;
-  white?: boolean;
-}) {
-  return (
-    <div className="relative">
-      <select
-        id={id}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${fieldClass} appearance-none pr-10 cursor-pointer ${white ? "bg-white" : ""} ${value ? "" : "text-[#6B625B]"}`}
-      >
-        {placeholder && (
-          <option value="" disabled>
-            {placeholder}
-          </option>
-        )}
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2"
-        strokeWidth={1.6}
-      />
-    </div>
-  );
-}
-
-/* ───────────────────────── Main component ───────────────────────── */
-
 type Step = "agency" | "work" | "team" | "plan" | "checkout";
 type ModalState = null | "created" | "card" | "bank" | "activated";
 
@@ -222,7 +162,6 @@ export function AgencyOnboarding({
   const [registerAgency, { isLoading: isRegistering }] = useRegisterAgencyMutation();
   const [step, setStep] = React.useState<Step>("agency");
 
-  // Step 1
   const [agencyName, setAgencyName] = React.useState("");
   const [logo, setLogo] = React.useState<string | null>(null);
   const [logoError, setLogoError] = React.useState<string | null>(null);
@@ -231,12 +170,10 @@ export function AgencyOnboarding({
   const [city, setCity] = React.useState("");
   const fileRef = React.useRef<HTMLInputElement>(null);
 
-  // Step 2
   const [kinds, setKinds] = React.useState<string[]>([]);
   const [volume, setVolume] = React.useState("");
   const [teamSize, setTeamSize] = React.useState("");
 
-  // Step 3
   const [invites, setInvites] = React.useState<{ email: string; role: Role }[]>(
     [],
   );
@@ -244,7 +181,6 @@ export function AgencyOnboarding({
   const [inviteRole, setInviteRole] = React.useState<Role>("Event Planner");
   const [inviteError, setInviteError] = React.useState<string | null>(null);
 
-  // Step 4 + 5
   const {
     data: plansResponse,
     isLoading: plansLoading,
@@ -328,7 +264,6 @@ export function AgencyOnboarding({
     }
   };
 
-  /* Logo helpers */
   const onLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -344,8 +279,7 @@ export function AgencyOnboarding({
     setLogoError(null);
     const reader = new FileReader();
     reader.onload = () => setLogo(String(reader.result));
-    reader.readAsDataURL(file); // TODO: upload to storage and keep the URL instead
-  };
+    reader.readAsDataURL(file);   };
 
   const useSampleLogo = () => {
     const initials =
@@ -362,7 +296,6 @@ export function AgencyOnboarding({
     setLogo(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
   };
 
-  /* Team helpers */
   const addInvite = (e: React.FormEvent) => {
     e.preventDefault();
     const email = inviteEmail.trim().toLowerCase();
@@ -374,7 +307,6 @@ export function AgencyOnboarding({
     setInviteError(null);
   };
 
-  /* Payment helpers */
   const handleSkipToDashboard = async () => {
     setBusy(true);
     const completed = await performRegistration({ skipPayment: true });
@@ -431,7 +363,6 @@ export function AgencyOnboarding({
         <section
           className={`w-full ${cardWidth} mx-auto rounded-[32px] border border-[#EEE9E0] bg-[#FDFCFA] p-6 sm:p-8`}
         >
-          {/* ───── Step 1: agency ───── */}
           {step === "agency" && (
             <form
               onSubmit={(e) => {
@@ -440,16 +371,16 @@ export function AgencyOnboarding({
               }}
             >
               <StepBadge n={1} />
-              <h1 className={`${titleClass} mt-6`}>
-                Tell Us About Your Agency
-              </h1>
-              <p className="mt-1 text-[17px] text-[#6B625B]">
-                Set up your agency workspace to manage clients, events, and your
-                team.
-              </p>
+              <CommonHeader
+                className="mt-6"
+                variant="section"
+                as="h1"
+                title="Tell Us About Your Agency"
+                subtitle="Set up your agency workspace to manage clients, events, and your team."
+              />
 
               <div className="mt-8">
-                <label htmlFor="agencyName" className={labelClass}>
+                <label htmlFor="agencyName" className={inputClass.label}>
                   Agency Name <span aria-hidden="true">*</span>
                 </label>
                 <input
@@ -458,12 +389,12 @@ export function AgencyOnboarding({
                   value={agencyName}
                   onChange={(e) => setAgencyName(e.target.value)}
                   placeholder="Lumina Event Studio"
-                  className={`${fieldClass} h-[52px]`}
+                  className={`${inputClass.input} h-[52px]`}
                 />
               </div>
 
               <div className="mt-6">
-                <p className={labelClass}>Agency Logo (Optional)</p>
+                <p className={inputClass.label}>Agency Logo (Optional)</p>
                 <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-xl border border-dashed border-[#DDD5C9] bg-white text-[13px] uppercase text-[#8C7A6B]">
                   {logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -513,20 +444,22 @@ export function AgencyOnboarding({
 
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 <div>
-                  <label htmlFor="agencyType" className={labelClass}>
+                  <label htmlFor="agencyType" className={inputClass.label}>
                     Agency Type <span aria-hidden="true">*</span>
                   </label>
-                  <Select
+                  <CommonSelect
                     id="agencyType"
-                    required
-                    value={agencyType}
-                    onChange={setAgencyType}
-                    options={AGENCY_TYPES}
+                    value={agencyType || undefined}
                     placeholder="Select type"
+                    item={AGENCY_TYPES.map((type) => ({
+                      label: type,
+                      value: type,
+                    }))}
+                    onValueChange={setAgencyType}
                   />
                 </div>
                 <div>
-                  <label htmlFor="country" className={labelClass}>
+                  <label htmlFor="country" className={inputClass.label}>
                     Country
                   </label>
                   <input
@@ -535,11 +468,11 @@ export function AgencyOnboarding({
                     onChange={(e) => setCountry(e.target.value)}
                     placeholder="Nigeria"
                     autoComplete="country-name"
-                    className={fieldClass}
+                    className={inputClass.input}
                   />
                 </div>
                 <div>
-                  <label htmlFor="city" className={labelClass}>
+                  <label htmlFor="city" className={inputClass.label}>
                     City
                   </label>
                   <input
@@ -548,7 +481,7 @@ export function AgencyOnboarding({
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="Lagos"
                     autoComplete="address-level2"
-                    className={fieldClass}
+                    className={inputClass.input}
                   />
                 </div>
               </div>
@@ -559,7 +492,6 @@ export function AgencyOnboarding({
             </form>
           )}
 
-          {/* ───── Step 2: work ───── */}
           {step === "work" && (
             <form
               onSubmit={(e) => {
@@ -577,11 +509,13 @@ export function AgencyOnboarding({
                   Skip for now
                 </button>
               </div>
-              <h1 className={`${titleClass} mt-4`}>Tell Us About Your Work</h1>
-              <p className="mt-1 text-[17px] text-[#6B625B]">
-                Help us customize your workspace tools and client event
-                templates.
-              </p>
+              <CommonHeader
+                className="mt-4"
+                variant="section"
+                as="h1"
+                title="Tell Us About Your Work"
+                subtitle="Help us customize your workspace tools and client event templates."
+              />
 
               <fieldset className="mt-8">
                 <legend className="mb-3 text-[16px] text-[#4A3F3A]">
@@ -658,17 +592,16 @@ export function AgencyOnboarding({
             </form>
           )}
 
-          {/* ───── Step 3: team ───── */}
           {step === "team" && (
             <div>
               <StepBadge n={3} />
-              <h1 className="mt-6 text-[32px] font-semibold leading-tight tracking-tight text-[#2A1A14] sm:text-[36px]">
-                Build your agency team
-              </h1>
-              <p className="mt-1 text-[17px] text-[#6B625B]">
-                Invite team members who will help manage clients, venues, and
-                event execution.
-              </p>
+              <CommonHeader
+                className="mt-6"
+                variant="section"
+                as="h1"
+                title="Build your agency team"
+                subtitle="Invite team members who will help manage clients, venues, and event execution."
+              />
 
               <form
                 onSubmit={addInvite}
@@ -685,14 +618,17 @@ export function AgencyOnboarding({
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="colleague@agency.com"
-                    className={`${fieldClass} h-[52px] bg-white`}
+                    className={`${inputClass.input} h-[52px] bg-white`}
                   />
-                  <Select
+                  <CommonSelect
                     id="inviteRole"
                     value={inviteRole}
-                    onChange={(v) => setInviteRole(v as Role)}
-                    options={ROLES}
-                    white
+                    className="h-[52px] bg-white"
+                    item={ROLES.map((role) => ({
+                      label: role,
+                      value: role,
+                    }))}
+                    onValueChange={(value) => setInviteRole(value as Role)}
                   />
                 </div>
                 {inviteError && (
@@ -700,12 +636,9 @@ export function AgencyOnboarding({
                     {inviteError}
                   </p>
                 )}
-                <button
-                  type="submit"
-                  className={`${darkButton} mt-4 h-[52px] gap-2 px-6 text-[18px]`}
-                >
-                  <Plus className="h-5 w-5" /> Add Member
-                </button>
+                <CommonButton type="submit" variant="black" size="lg" className="mt-4" leftIcon={<Plus />}>
+                  Add Member
+                </CommonButton>
               </form>
 
               <div className="mt-8">
@@ -769,7 +702,6 @@ export function AgencyOnboarding({
                 <ContinueButton
                   type="button"
                   onClick={() => {
-                    // TODO: send the pending invitations
                     setStep("plan");
                   }}
                 >
@@ -779,16 +711,14 @@ export function AgencyOnboarding({
             </div>
           )}
 
-          {/* ───── Step 4: plans ───── */}
           {step === "plan" && (
             <div>
-              <h1 className={titleClass}>
-                Choose A Plan That Fits Your Agency
-              </h1>
-              <p className="mt-1 text-[17px] text-[#6B625B]">
-                Simple transparent pricing. Upgrade or downgrade anytime as your
-                team grows.
-              </p>
+              <CommonHeader
+                variant="section"
+                as="h1"
+                title="Choose A Plan That Fits Your Agency"
+                subtitle="Simple transparent pricing. Upgrade or downgrade anytime as your team grows."
+              />
 
               {annualAvailable && (
                 <div className="mt-8 inline-flex flex-col gap-2 rounded-xl border border-[#EEE9E0] bg-white px-3.5 py-3">
@@ -825,43 +755,42 @@ export function AgencyOnboarding({
               />
 
               <div className="mt-8 flex items-center justify-between border-t border-[#EAE4DA] pt-5">
-                <button
-                  type="button"
-                  onClick={() => setStep("team")}
-                  className={`${outlineButton} h-[46px] px-5 text-[16px]`}
-                >
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </button>
+                <CommonButton type="button" variant="outline" showLeftIcon onClick={() => setStep("team")}>
+                  Back
+                </CommonButton>
                 {noPlansAvailable ? (
-                  <button
+                  <CommonButton
                     type="button"
+                    size="md"
+                    showDefaultIcon
                     disabled={busy || isRegistering}
                     onClick={handleSkipToDashboard}
-                    className={`${brownButton} h-[46px] px-6 text-[16px]`}
                   >
-                    Continue without a plan <ArrowRight className="h-4 w-4" />
-                  </button>
+                    Continue without a plan
+                  </CommonButton>
                 ) : (
-                  <button
+                  <CommonButton
                     type="button"
+                    size="md"
+                    showDefaultIcon
                     disabled={!plan}
                     onClick={() => setStep("checkout")}
-                    className={`${brownButton} h-[46px] px-6 text-[16px]`}
                   >
-                    Continue <ArrowRight className="h-4 w-4" />
-                  </button>
+                    Continue
+                  </CommonButton>
                 )}
               </div>
             </div>
           )}
 
-          {/* ───── Step 5: checkout ───── */}
           {step === "checkout" && (
             <div>
-              <h1 className={titleClass}>Complete Your Setup</h1>
-              <p className="mt-1 text-[17px] text-[#6B625B]">
-                Select a plan to activate your agency workspace.
-              </p>
+              <CommonHeader
+                variant="section"
+                as="h1"
+                title="Complete Your Setup"
+                subtitle="Select a plan to activate your agency workspace."
+              />
 
               <div className="mt-10 grid gap-5 md:grid-cols-[0.85fr_1.15fr]">
                 <div className="space-y-4">
@@ -929,34 +858,34 @@ export function AgencyOnboarding({
                     ))}
                   </div>
 
-                  <button
+                  <CommonButton
                     type="button"
+                    variant="black"
+                    size="lg"
+                    fullWidth
+                    className="mt-5"
                     disabled={busy}
+                    isLoading={busy}
+                    loadingText="Setting up..."
                     onClick={() =>
                       method === "card" ? setModal("card") : createWorkspace()
                     }
-                    className={`${darkButton} mt-5 h-[54px] w-full text-[18px]`}
                   >
-                    {busy ? "Setting up..." : `Pay ${naira(total)} & Activate`}
-                  </button>
+                    {`Pay ${naira(total)} & Activate`}
+                  </CommonButton>
                 </div>
               </div>
 
               <div className="mt-8 border-t border-[#EAE4DA] pt-5">
-                <button
-                  type="button"
-                  onClick={() => setStep("plan")}
-                  className={`${outlineButton} h-[46px] px-5 text-[16px]`}
-                >
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </button>
+                <CommonButton type="button" variant="outline" showLeftIcon onClick={() => setStep("plan")}>
+                  Back
+                </CommonButton>
               </div>
             </div>
           )}
         </section>
       </main>
 
-      {/* ───── Modals ───── */}
       {modal === "card" && (
         <CardPaymentModal
           total={total}
@@ -981,20 +910,12 @@ export function AgencyOnboarding({
             message={`“${agencyName}” has been created. Complete payment to activate your ${plan?.planName ?? ""} plan.`}
           />
           <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={() => setModal("bank")}
-              className={`${brownButton} h-[52px] w-full text-[18px]`}
-            >
-              Pay {naira(total)} &amp; Activate
-            </button>
-            <button
-              type="button"
-              onClick={goDashboard}
-              className={`${outlineButton} h-[52px] w-full text-[18px]`}
-            >
+            <CommonButton type="button" size="lg" fullWidth onClick={() => setModal("bank")}>
+              Pay {naira(total)} & Activate
+            </CommonButton>
+            <CommonButton type="button" variant="outline" size="lg" fullWidth onClick={goDashboard}>
               Go to Agency Dashboard
-            </button>
+            </CommonButton>
           </div>
         </Modal>
       )}
@@ -1005,13 +926,9 @@ export function AgencyOnboarding({
             title="Your Workspace Is Ready 🎉"
             message={`“${agencyName}” is set up and your ${plan?.planName ?? ""} plan is active. You can start managing clients and events.`}
           />
-          <button
-            type="button"
-            onClick={goDashboard}
-            className={`${brownButton} mt-8 h-[52px] w-full text-[18px]`}
-          >
+          <CommonButton type="button" size="lg" fullWidth className="mt-8" onClick={goDashboard}>
             Go to Agency Dashboard
-          </button>
+          </CommonButton>
         </Modal>
       )}
     </div>

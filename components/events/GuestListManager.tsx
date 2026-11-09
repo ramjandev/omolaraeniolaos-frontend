@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import CommonSelect from "@/components/common/CommonSelect";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { guestEntrySchema, type GuestEntryValues } from "@/lib/validations/eventWizardSchemas";
@@ -25,12 +26,10 @@ import {
   GUEST_GROUPS,
   type WizardGuest,
 } from "@/store/eventSlice/eventSlice";
+import { inputClass } from "@/components/auth/onboarding";
 import { parseGuestCsv } from "./shared/guest-csv";
 
 export const SAMPLE_GUEST_CSV = "/samples/guest-list-sample.csv";
-
-const fieldClass =
-  "h-11 text-xs rounded-xl bg-card border-[#EBE3D9] dark:border-border";
 
 function phoneDigits(phone: string) {
   return phone.replace(/\D/g, "");
@@ -643,17 +642,13 @@ export function GuestListManager({
         <div className="flex flex-col gap-3 border-t border-[#EBE3D9] px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <span>Rows per page</span>
-            <select
-              value={pageSize}
-              onChange={(event) => setPageSize(Number(event.target.value))}
+            <CommonSelect
+              value={String(pageSize)}
+              item={[10, 20, 50].map((size) => ({ label: String(size), value: String(size) }))}
+              w={72}
+              onValueChange={(value) => setPageSize(Number(value))}
               className="h-8 rounded-lg border border-[#EBE3D9] bg-card px-2"
-            >
-              {[10, 20, 50].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
+            />
             <span>
               showing {visibleGuests.length === 0 ? 0 : (safePage - 1) * pageSize + 1} of {visibleGuests.length} rows
             </span>
@@ -707,14 +702,14 @@ export function GuestListManager({
               <Label htmlFor="guest-name" className="text-xs font-semibold">
                 Guest Name
               </Label>
-              <Input id="guest-name" placeholder="guest name" className={fieldClass} {...form.register("name")} />
+              <Input id="guest-name" placeholder="guest name" className={inputClass.input} {...form.register("name")} />
               {errorText(form.formState.errors.name?.message)}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="guest-email" className="text-xs font-semibold">
                 Guest Email Address
               </Label>
-              <Input id="guest-email" placeholder="guest@email.com" className={fieldClass} {...form.register("email")} />
+              <Input id="guest-email" placeholder="guest@email.com" className={inputClass.input} {...form.register("email")} />
               {errorText(form.formState.errors.email?.message)}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -722,17 +717,16 @@ export function GuestListManager({
                 <Label htmlFor="guest-group" className="text-xs font-semibold">
                   Guest Group
                 </Label>
-                <select
+                <CommonSelect
                   id="guest-group"
+                  value={form.watch("group")}
+                  item={GUEST_GROUPS.map((group) => ({ label: group, value: group }))}
+                  w="100%"
+                  onValueChange={(value) =>
+                    form.setValue("group", value as GuestEntryValues["group"], { shouldValidate: true })
+                  }
                   className="w-full h-11 px-3 rounded-xl bg-card border border-[#EBE3D9] text-xs text-foreground"
-                  {...form.register("group")}
-                >
-                  {GUEST_GROUPS.map((group) => (
-                    <option key={group} value={group}>
-                      {group}
-                    </option>
-                  ))}
-                </select>
+                />
                 {errorText(form.formState.errors.group?.message)}
               </div>
               <div className="space-y-1.5">
@@ -742,7 +736,7 @@ export function GuestListManager({
                 <Input
                   id="guest-phone"
                   placeholder="+234 801 234 5678"
-                  className={fieldClass}
+                  className={inputClass.input}
                   {...form.register("phone")}
                 />
                 {errorText(form.formState.errors.phone?.message)}
@@ -791,17 +785,16 @@ export function GuestListManager({
                 className="h-10 pl-9 text-xs rounded-xl"
               />
             </div>
-            <select
+            <CommonSelect
               value={eventType}
-              onChange={(event) => setEventType(event.target.value)}
+              item={eventTypes.map((type) => ({
+                label: type === "All" ? "Event Type" : type,
+                value: type,
+              }))}
+              w={140}
+              onValueChange={setEventType}
               className="h-10 rounded-xl border border-[#EBE3D9] bg-card px-3 text-xs"
-            >
-              {eventTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type === "All" ? "Event Type" : type}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="max-h-80 space-y-1 overflow-y-auto">
             {eventsLoading && <p className="px-2 py-6 text-center text-xs text-muted-foreground">Loading events…</p>}

@@ -26,9 +26,6 @@ import {
 
 export const eventAPI = baseAPI.injectEndpoints({
   endpoints: (build) => ({
-    // -------------------------------------------------------------------------
-    // 1. Events Lifecycle
-    // -------------------------------------------------------------------------
     createEvent: build.mutation<CreateEventResponse, CreateEventPayload>({
       query: (data) => ({
         url: `/individual/events`,
@@ -115,9 +112,6 @@ export const eventAPI = baseAPI.injectEndpoints({
       invalidatesTags: ["Event"],
     }),
 
-    // -------------------------------------------------------------------------
-    // 2. Guest Roster & RSVP
-    // -------------------------------------------------------------------------
     getEventGuests: build.query<
       GetEventGuestsResponse,
       { id: string; params?: GetGuestsParams }
@@ -208,9 +202,6 @@ export const eventAPI = baseAPI.injectEndpoints({
       invalidatesTags: ["Attendee"],
     }),
 
-    // -------------------------------------------------------------------------
-    // 3. Seating Protocol
-    // -------------------------------------------------------------------------
     createEventSeating: build.mutation<
       { message?: string; data?: { id: string; name: string } },
       { eventId: string; data: CreateSeatingPayload }
@@ -263,9 +254,6 @@ export const eventAPI = baseAPI.injectEndpoints({
       invalidatesTags: ["Event", "Attendee"],
     }),
 
-    // -------------------------------------------------------------------------
-    // 4. Live Turnstile Check-In Telemetry
-    // -------------------------------------------------------------------------
     getEventCheckInMonitor: build.query<GetCheckInMonitorResponse, string>({
       query: (eventId) => ({
         url: `/individual/events/${eventId}/check-in`,

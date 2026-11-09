@@ -74,7 +74,6 @@ export function SidebarNavLinks({
 }) {
   const pathname = usePathname();
 
-  // Group items by section or render flat
   let lastSection: string | undefined = undefined;
 
   return (
@@ -147,7 +146,6 @@ export function SidebarNavLinks({
               )}
             </Link>
 
-            {/* Nested Sub-items (matching Figma accordion on Events) */}
             {!isCollapsed && item.children && item.children.length > 0 && (
               <div className="pl-6 pr-1 py-0.5 space-y-0.5">
                 {item.children.map((child) => {

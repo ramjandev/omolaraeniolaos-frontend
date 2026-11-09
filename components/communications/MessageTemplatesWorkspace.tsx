@@ -4,6 +4,7 @@ import * as React from 'react';
 import {
   Plus,
   Copy,
+  Trash2,
   CheckCheck,
   MessageSquare,
   Smartphone,
@@ -12,6 +13,17 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import type { OrganizerKind } from '@/lib/organizer';
+import { getEventGuests, getIndividualEventById } from '@/lib/api/individual-events';
+import {
+  createMessageTemplate,
+  deleteMessageTemplate,
+  fillMessageTemplate,
+  listMessageTemplates,
+  templateChannelLabel,
+  updateMessageTemplate,
+  type MessageTemplate,
+  type TemplateChannel,
+} from '@/lib/messageTemplates';
 import { EventBreadcrumb } from '@/components/events/shared/EventBreadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,70 +32,28 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 
-interface MessageTemplate {
-  id: string;
-  name: string;
-  channel: 'WhatsApp' | 'SMS' | 'Email';
-  content: string;
-  lastUpdated: string;
-}
-
-const INITIAL_TEMPLATES: MessageTemplate[] = [
-  {
-    id: 't-1',
-    name: 'RSVP Reminder',
-    channel: 'WhatsApp',
-    content:
-      'Good day {{guest_name}},\n\nWe look forward to having you join us for {{event_name}} on {{event_date}} at {{venue}}.\n\nKindly confirm your attendance by tapping the RSVP link below:\n{{rsvp_link}}\n\nWarm regards,\nThe Royal Gala Committee',
-    lastUpdated: 'Oct 8, 2026',
-  },
-  {
-    id: 't-2',
-    name: 'Venue & Parking Directions',
-    channel: 'WhatsApp',
-    content:
-      'Dear {{guest_name}},\n\nComplimentary VIP valet parking is available at {{venue}} starting from 5:30 PM.\n\nPlease show this pass at the North Gate entrance.\n\nSee you this evening!',
-    lastUpdated: 'Oct 6, 2026',
-  },
-  {
-    id: 't-3',
-    name: 'Dress Code & Protocol Reminder',
-    channel: 'WhatsApp',
-    content:
-      'Dear {{guest_name}},\n\nFriendly reminder regarding {{event_name}}:\nDress Code: Strictly Black Tie / Royal Traditional.\n\nYour allocated seating: {{table_number}}.\nDoors close promptly at 6:45 PM.',
-    lastUpdated: 'Oct 4, 2026',
-  },
-  {
-    id: 't-4',
-    name: 'Gift Registry & Tribute Book',
-    channel: 'WhatsApp',
-    content:
-      'Greetings {{guest_name}},\n\nShould you wish to contribute to the Royal Investiture tribute monograph or digital registry, please visit:\nhttps://mceniesvite.live/registry/royal-gala\n\nThank you for your generous thoughts.',
-    lastUpdated: 'Oct 1, 2026',
-  },
-  {
-    id: 't-5',
-    name: 'Security & Access Protocol',
-    channel: 'SMS',
-    content:
-      'GALA NOTICE: Due to high-profile state dignitaries, all delegates must present their verified digital QR gate pass at the entrance.',
-    lastUpdated: 'Sep 28, 2026',
-  },
-];
-
 export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: OrganizerKind; eventId: string }) {
-  const [templates, setTemplates] = React.useState<MessageTemplate[]>(INITIAL_TEMPLATES);
-  const [selectedTemplateId, setSelectedTemplateId] = React.useState<string>('t-1');
+  const [templates, setTemplates] = React.useState<MessageTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState('');
   const [isSaved, setIsSaved] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [previewValues, setPreviewValues] = React.useState<Record<string, string>>({
+    guest_name: 'Guest',
+    event_name: 'your event',
+    event_date: 'the event date',
+    venue: 'the venue',
+    table_number: 'Not assigned',
+    rsvp_link: '',
+  });
 
-  const selectedTemplate =
-    templates.find((t) => t.id === selectedTemplateId) || templates[0];
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) || templates[0];
 
-  const [editName, setEditName] = React.useState(selectedTemplate.name);
-  const [editChannel, setEditChannel] = React.useState(selectedTemplate.channel);
-  const [editContent, setEditContent] = React.useState(selectedTemplate.content);
+  const [editName, setEditName] = React.useState('');
+  const [editChannel, setEditChannel] = React.useState<TemplateChannel>('WHATSAPP');
+  const [editContent, setEditContent] = React.useState('');
 
-  // When selected template changes
   React.useEffect(() => {
     if (selectedTemplate) {
       setEditName(selectedTemplate.name);
@@ -96,73 +66,137 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
     setEditContent((prev) => `${prev} ${tag} `);
   };
 
-  const handleSave = () => {
-    setTemplates((prev) =>
-      prev.map((t) =>
-        t.id === selectedTemplateId
-          ? {
-              ...t,
-              name: editName,
-              channel: editChannel,
-              content: editContent,
-              lastUpdated: 'Just now',
-            }
-          : t
-      )
-    );
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
-  };
-
-  const handleDuplicate = (template: MessageTemplate) => {
-    const copy: MessageTemplate = {
-      id: `t-${Date.now()}`,
-      name: `${template.name} (Copy)`,
-      channel: template.channel,
-      content: template.content,
-      lastUpdated: 'Just now',
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    void listMessageTemplates(eventId)
+      .then((rows) => {
+        if (cancelled) return;
+        setTemplates(rows);
+        setSelectedTemplateId((current) => (rows.some((row) => row.id === current) ? current : rows[0]?.id || ''));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Templates could not be loaded.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    void Promise.all([
+      getIndividualEventById(eventId).catch(() => null),
+      getEventGuests(eventId).catch(() => null),
+    ]).then(([event, roster]) => {
+      if (cancelled) return;
+      const guest = roster?.guests?.[0];
+      const when = [event?.event?.dateFormatted, event?.event?.timeFormatted].filter(Boolean).join(' · ');
+      const venue = [event?.event?.venueName, event?.event?.city].filter(Boolean).join(', ');
+      const link = guest
+        ? `${window.location.origin}/guest?attendeeId=${guest.id}&eventId=${eventId}&qr=${encodeURIComponent(guest.qrCode || '')}`
+        : `${window.location.origin}/guest?eventId=${eventId}`;
+      setPreviewValues({
+        guest_name: guest?.name || 'Guest',
+        event_name: event?.event?.title || 'your event',
+        event_date: when || 'the event date',
+        venue: venue || 'the venue',
+        table_number: guest?.tableSeat || 'Not assigned',
+        rsvp_link: link,
+      });
+    });
+    return () => {
+      cancelled = true;
     };
-    setTemplates([...templates, copy]);
-    setSelectedTemplateId(copy.id);
+  }, [eventId]);
+
+  React.useEffect(() => {
+    if (!selectedTemplate) return;
+    setEditName(selectedTemplate.name);
+    setEditChannel(selectedTemplate.channel);
+    setEditContent(selectedTemplate.content);
+  }, [selectedTemplate]);
+
+  const handleSave = async () => {
+    if (!selectedTemplate || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await updateMessageTemplate(eventId, selectedTemplate.id, {
+        name: editName.trim() || selectedTemplate.name,
+        channel: editChannel,
+        content: editContent.trim(),
+      });
+      setTemplates((current) => current.map((item) => (item.id === saved.id ? saved : item)));
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The template could not be saved.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleCreateNew = () => {
-    const fresh: MessageTemplate = {
-      id: `t-${Date.now()}`,
-      name: 'New Custom Message Template',
-      channel: 'WhatsApp',
-      content: 'Hello {{guest_name}},\n\nType your custom announcement here.\n\nWarm regards,\n{{event_name}} Team',
-      lastUpdated: 'Just now',
-    };
-    setTemplates([...templates, fresh]);
-    setSelectedTemplateId(fresh.id);
+  const handleDuplicate = async (template: MessageTemplate) => {
+    setError('');
+    try {
+      const copy = await createMessageTemplate(eventId, {
+        name: `${template.name} (Copy)`,
+        channel: template.channel,
+        content: template.content,
+      });
+      setTemplates((current) => [...current, copy]);
+      setSelectedTemplateId(copy.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The template could not be duplicated.');
+    }
   };
 
-  // Preview replacement
-  const previewText = editContent
-    .replace(/{{guest_name}}/g, 'Dr. Babatunde Fashola')
-    .replace(/{{event_name}}/g, 'The Grand Royal Gala & Investiture')
-    .replace(/{{event_date}}/g, 'Saturday, October 24, 2026')
-    .replace(/{{venue}}/g, 'The Civic Centre, Victoria Island')
-    .replace(/{{table_number}}/g, 'High Table VIP-1')
-    .replace(/{{rsvp_link}}/g, 'https://mceniesvite.live/rsvp/gala-2026/fashola');
+  const handleDelete = async (template: MessageTemplate) => {
+    setError('');
+    try {
+      await deleteMessageTemplate(eventId, template.id);
+      setTemplates((current) => {
+        const next = current.filter((item) => item.id !== template.id);
+        setSelectedTemplateId((selected) => (selected === template.id ? next[0]?.id || '' : selected));
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The template could not be deleted.');
+    }
+  };
+
+  const handleCreateNew = async () => {
+    setError('');
+    try {
+      const fresh = await createMessageTemplate(eventId, {
+        name: 'New Custom Message Template',
+        channel: 'WHATSAPP',
+        content: 'Hello {{guest_name}},\n\nType your custom announcement here.\n\nWarm regards,\n{{event_name}} Team',
+      });
+      setTemplates((current) => [...current, fresh]);
+      setSelectedTemplateId(fresh.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The template could not be created.');
+    }
+  };
+
+  const previewText = fillMessageTemplate(editContent, previewValues);
 
   return (
       <div className="space-y-6">
         <EventBreadcrumb organizer={organizer} eventId={eventId} current="Message Templates" />
-        {/* Save Confirmation Toast */}
         {isSaved && (
           <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center gap-2 text-xs">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>
-              <strong>Template updated successfully!</strong> Future communications will use this updated version.
+              <strong>Template saved.</strong> Use Template in a guest chat will insert this version.
             </span>
           </div>
         )}
+        {error && (
+          <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700">{error}</div>
+        )}
+        {loading && <p className="text-xs text-muted-foreground">Loading templates…</p>}
 
-        {/* Main 2-Column Split matching Figma */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Saved Message Templates */}
           <div className="lg:col-span-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -207,14 +241,14 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                             variant="secondary"
                             className="text-[10px] px-1.5 py-0 rounded bg-muted text-muted-foreground"
                           >
-                            {tpl.channel}
+                            {templateChannelLabel(tpl.channel)}
                           </Badge>
                         </div>
                         <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
                           {tpl.content}
                         </p>
                         <span className="text-[10px] text-muted-foreground/70 block pt-1">
-                          Updated {tpl.lastUpdated}
+                          Updated {new Date(tpl.updatedAt).toLocaleDateString()}
                         </span>
                       </div>
 
@@ -230,6 +264,17 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDelete(tpl);
+                          }}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -238,7 +283,6 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
             </div>
           </div>
 
-          {/* Right Column: Template Live Editor & WhatsApp Preview */}
           <div className="lg:col-span-7 space-y-6">
             <Card className="border-border bg-card shadow-xs rounded-2xl">
               <CardContent className="p-6 space-y-5">
@@ -253,15 +297,15 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                   </div>
                   <Button
                     size="sm"
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
+                    disabled={!selectedTemplate || saving}
                     className="bg-[#6E3B1C] hover:bg-[#834621] text-white text-xs gap-1.5 rounded-xl shadow-xs"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>Save Template</span>
+                    <span>{saving ? 'Saving…' : 'Save Template'}</span>
                   </Button>
                 </div>
 
-                {/* Template Name & Channel */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Template Title</Label>
@@ -277,9 +321,9 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setEditChannel('WhatsApp')}
+                        onClick={() => setEditChannel('WHATSAPP')}
                         className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all ${
-                          editChannel === 'WhatsApp'
+                          editChannel === 'WHATSAPP'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
                             : 'bg-card text-muted-foreground border-border hover:bg-muted'
                         }`}
@@ -301,9 +345,9 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                       </button>
                       <button
                         type="button"
-                        onClick={() => setEditChannel('Email')}
+                        onClick={() => setEditChannel('EMAIL')}
                         className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all ${
-                          editChannel === 'Email'
+                          editChannel === 'EMAIL'
                             ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300'
                             : 'bg-card text-muted-foreground border-border hover:bg-muted'
                         }`}
@@ -315,7 +359,6 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                   </div>
                 </div>
 
-                {/* Personalization Tag Insert Pills */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Insert Personalization Tags</Label>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -339,7 +382,6 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                   </div>
                 </div>
 
-                {/* Content Textarea */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-semibold">Message Content</Label>
@@ -355,7 +397,6 @@ export function MessageTemplatesWorkspace({ organizer, eventId }: { organizer: O
                   />
                 </div>
 
-                {/* Live Message Bubble Preview matching WhatsApp design */}
                 <div className="space-y-2 pt-2 border-t border-border">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Live Guest Phone Preview

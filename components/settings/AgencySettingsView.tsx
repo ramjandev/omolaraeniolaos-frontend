@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import {
   User,
   Bell,
@@ -29,13 +30,11 @@ export function AgencySettingsView() {
   const [activeTab, setActiveTab] = React.useState<SettingsTab>('profile');
   const [showSavedAlert, setShowSavedAlert] = React.useState(true);
 
-  // Profile Form State matching settings-page.png
   const [fullName, setFullName] = React.useState('Folashade Adeyemi');
   const [agencyName, setAgencyName] = React.useState('Lumina Event Studio');
   const [email, setEmail] = React.useState('folashade@mcenies.com');
   const [phone, setPhone] = React.useState('+234 803 456 7890');
 
-  // Notifications State
   const [rsvpUpdates, setRsvpUpdates] = React.useState(true);
   const [guestReminders, setGuestReminders] = React.useState(true);
   const [eventUpdates, setEventUpdates] = React.useState(true);
@@ -53,17 +52,13 @@ export function AgencySettingsView() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Page Title & Subtitle matching settings-page.png */}
-      <div className="space-y-1">
-        <h1 className="font-serif font-bold text-2xl md:text-3xl text-foreground">
-          Settings
-        </h1>
-        <p className="text-xs md:text-sm text-muted-foreground">
-          Manage your account and event preferences.
-        </p>
-      </div>
+      <CommonHeader
+        variant="section"
+        as="h1"
+        title="Settings"
+        subtitle="Manage your account and event preferences."
+      />
 
-      {/* Tabs matching settings-page.png */}
       <div className="flex items-center gap-6 border-b border-border/80">
         <button
           type="button"
@@ -111,7 +106,6 @@ export function AgencySettingsView() {
         </button>
       </div>
 
-      {/* Success Alert Banner matching settings-page.png */}
       {showSavedAlert && (
         <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
           <div className="flex items-center gap-2.5">
@@ -128,7 +122,6 @@ export function AgencySettingsView() {
         </div>
       )}
 
-      {/* Tab 1: Profile Form */}
       {activeTab === 'profile' && (
         <Card className="rounded-2xl border-border/80 bg-card shadow-xs overflow-hidden">
           <CardContent className="p-6 md:p-8 space-y-6">
@@ -141,7 +134,6 @@ export function AgencySettingsView() {
               </p>
             </div>
 
-            {/* Profile Avatar with Camera Button */}
             <div className="flex items-center gap-5">
               <div className="relative">
                 <Avatar className="w-20 h-20 rounded-2xl border-2 border-[#D4A373]/40">
@@ -226,7 +218,6 @@ export function AgencySettingsView() {
         </Card>
       )}
 
-      {/* Tab 2: Notifications Preferences */}
       {activeTab === 'notifications' && (
         <Card className="rounded-2xl border-border/80 bg-card shadow-xs overflow-hidden">
           <CardContent className="p-6 md:p-8 space-y-6">
@@ -241,7 +232,6 @@ export function AgencySettingsView() {
 
             <form onSubmit={handleSaveNotifications} className="space-y-4 pt-2">
               <div className="divide-y divide-border/60">
-                {/* RSVP Updates */}
                 <div className="py-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-foreground">RSVP Updates</p>
@@ -255,7 +245,6 @@ export function AgencySettingsView() {
                   />
                 </div>
 
-                {/* Guest Reminders */}
                 <div className="py-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-foreground">Guest Reminders</p>
@@ -269,7 +258,6 @@ export function AgencySettingsView() {
                   />
                 </div>
 
-                {/* Event Updates */}
                 <div className="py-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-foreground">Event Updates</p>
@@ -283,7 +271,6 @@ export function AgencySettingsView() {
                   />
                 </div>
 
-                {/* Billing Notifications */}
                 <div className="py-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-foreground">Billing Notifications</p>
@@ -311,7 +298,6 @@ export function AgencySettingsView() {
         </Card>
       )}
 
-      {/* Tab 3: Security */}
       {activeTab === 'security' && (
         <Card className="rounded-2xl border-border/80 bg-card shadow-xs overflow-hidden">
           <CardContent className="p-6 md:p-8 space-y-6">
@@ -325,7 +311,6 @@ export function AgencySettingsView() {
             </div>
 
             <div className="divide-y divide-border/60 text-xs">
-              {/* Password */}
               <div className="py-4 flex items-center justify-between">
                 <div className="space-y-0.5">
                   <p className="font-semibold text-foreground">Password</p>
@@ -336,7 +321,6 @@ export function AgencySettingsView() {
                 </Button>
               </div>
 
-              {/* Email Verification */}
               <div className="py-4 flex items-center justify-between">
                 <div className="space-y-0.5">
                   <p className="font-semibold text-foreground">Email Verification</p>
@@ -347,7 +331,6 @@ export function AgencySettingsView() {
                 </Badge>
               </div>
 
-              {/* Device Management */}
               <div className="py-4 flex items-center justify-between">
                 <div className="space-y-0.5">
                   <p className="font-semibold text-foreground">Device Management</p>
@@ -359,7 +342,6 @@ export function AgencySettingsView() {
               </div>
             </div>
 
-            {/* Danger Zone: Delete Account */}
             <div className="p-5 rounded-2xl border border-rose-300/60 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 space-y-3">
               <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-semibold text-xs">
                 <AlertTriangle className="w-4 h-4" />

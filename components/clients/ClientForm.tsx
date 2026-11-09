@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
+import { inputClass } from '@/components/auth/onboarding';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -11,9 +12,6 @@ import {
   getAgencyClient,
   updateAgencyClient,
 } from '@/lib/api/agency-dashboard';
-
-const fieldClass =
-  'h-11 rounded-lg border-[#E7E1DA] bg-[#FBF8F5] text-sm placeholder:text-[#B3A79C]';
 
 export function ClientForm({ clientId }: { clientId?: string }) {
   const router = useRouter();
@@ -132,7 +130,7 @@ export function ClientForm({ clientId }: { clientId?: string }) {
                   value={form.firstName}
                   onChange={set('firstName')}
                   placeholder="Enter first name"
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </Field>
               <Field label="Last name">
@@ -140,7 +138,7 @@ export function ClientForm({ clientId }: { clientId?: string }) {
                   value={form.lastName}
                   onChange={set('lastName')}
                   placeholder="Enter last name"
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </Field>
               <Field label="Email address">
@@ -149,7 +147,7 @@ export function ClientForm({ clientId }: { clientId?: string }) {
                   value={form.email}
                   onChange={set('email')}
                   placeholder="name@example.com"
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </Field>
               <Field label="Phone number">
@@ -157,7 +155,7 @@ export function ClientForm({ clientId }: { clientId?: string }) {
                   value={form.phone}
                   onChange={set('phone')}
                   placeholder="+234"
-                  className={fieldClass}
+                  className={inputClass.input}
                 />
               </Field>
             </div>
@@ -166,7 +164,7 @@ export function ClientForm({ clientId }: { clientId?: string }) {
                 value={form.organization}
                 onChange={set('organization')}
                 placeholder="Enter organization name"
-                className={fieldClass}
+                className={inputClass.input}
               />
             </Field>
             <Field label="Notes (optional)">
@@ -174,7 +172,7 @@ export function ClientForm({ clientId }: { clientId?: string }) {
                 value={form.notes}
                 onChange={set('notes')}
                 placeholder="Add context about this client"
-                className={fieldClass}
+                className={inputClass.input}
               />
             </Field>
 

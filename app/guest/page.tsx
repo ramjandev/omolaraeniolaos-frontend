@@ -72,20 +72,16 @@ function withCurrent(options: string[], current: string) {
 
 export default function GuestConversationalRsvpPage() {
   const router = useRouter();
-  // State management for conversation flow
   const [selectedLang, setSelectedLang] = React.useState<LanguageCode>('en');
   const [rsvpStatus, setRsvpStatus] = React.useState<'pending' | 'accepted' | 'tentative' | 'declined'>('pending');
-  const [guestCount, setGuestCount] = React.useState<number>(2); // 1 = Solo, 2 = +1, etc.
-  const [guestCountSubmitted, setGuestCountSubmitted] = React.useState<boolean>(false);
+  const [guestCount, setGuestCount] = React.useState<number>(2);   const [guestCountSubmitted, setGuestCountSubmitted] = React.useState<boolean>(false);
   
-  // Guest Profile Preferences
   const [invite, setInvite] = React.useState<GuestPass | null>(null);
   const [role, setRole] = React.useState<string>('General');
   const [diet, setDiet] = React.useState<string>('Standard Banquet');
   const [protocol, setProtocol] = React.useState<string>('Standard Gate');
   const [profileSubmitted, setProfileSubmitted] = React.useState<boolean>(false);
 
-  // Voice Note Modal state
   const [showVoiceModal, setShowVoiceModal] = React.useState<boolean>(false);
   const [isRecording, setIsRecording] = React.useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = React.useState<number>(0);
@@ -101,7 +97,6 @@ export default function GuestConversationalRsvpPage() {
   const audioUrlRef = React.useRef<string>('');
   const audioPlayerRef = React.useRef<HTMLAudioElement | null>(null);
 
-  // Chat message input state
   const [inputMessage, setInputMessage] = React.useState<string>('');
   const [customMessages, setCustomMessages] = React.useState<Array<{ sender: 'user' | 'assistant'; text: string; time: string }>>([]);
   const [liveMessages, setLiveMessages] = React.useState<LiveMessage[]>([]);
@@ -116,12 +111,10 @@ export default function GuestConversationalRsvpPage() {
 
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  // Auto-scroll when new messages appear
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [rsvpStatus, guestCountSubmitted, profileSubmitted, customMessages, liveMessages, hasVoiceResponse]);
 
-  // Timer for recording simulation
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isRecording) {
@@ -227,7 +220,6 @@ export default function GuestConversationalRsvpPage() {
           notes: `Voice RSVP: ${result.transcribedText}`,
         });
       } catch {
-        // The voice endpoint already stored the transcript and RSVP.
       }
       setShowVoiceModal(false);
     } catch (err) {
@@ -269,7 +261,6 @@ export default function GuestConversationalRsvpPage() {
           notes: extras?.notes || `Protocol: ${protocol}`,
         });
       } catch {
-        // Keep the local conversation even if the backend is unreachable.
       }
     },
     [diet, guestCount, protocol, selectedLang],
@@ -405,10 +396,8 @@ export default function GuestConversationalRsvpPage() {
 
   return (
     <div className="min-h-screen bg-[#D1D7DB] flex justify-center items-start sm:py-6">
-      {/* Mobile-Only Frame container strictly 430px */}
       <div className="w-full max-w-[430px] h-screen sm:h-[890px] sm:max-h-[920px] bg-[#EFEAE2] flex flex-col relative overflow-hidden sm:rounded-[36px] sm:shadow-2xl sm:border sm:border-[#CBD5E1]">
         
-        {/* WhatsApp-Style Header */}
         <header className="bg-[#075E54] text-white px-3 py-2.5 flex items-center justify-between shadow-md z-30 shrink-0">
           <div className="flex items-center gap-2">
             <button
@@ -420,7 +409,6 @@ export default function GuestConversationalRsvpPage() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             
-            {/* Avatar & Title */}
             <div className="flex items-center gap-2.5">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#7A3B18] to-[#C99C6A] p-[2px] shadow-sm">
@@ -467,7 +455,6 @@ export default function GuestConversationalRsvpPage() {
           </div>
         </header>
 
-        {/* Chat Area with WhatsApp Wallpaper Pattern Background */}
         <div 
           className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 relative scrollbar-none"
           style={{
@@ -477,7 +464,6 @@ export default function GuestConversationalRsvpPage() {
           }}
         >
           
-          {/* Security Banner: End-to-end Encrypted */}
           <div className="flex justify-center">
             <div className="bg-[#FFEECD] text-[#54656F] text-[11px] px-3.5 py-1.5 rounded-lg shadow-xs max-w-[90%] text-center border border-[#FFE2A4] flex items-center justify-center gap-1.5">
               <Lock className="w-3 h-3 text-[#B0762E] shrink-0" />
@@ -485,18 +471,15 @@ export default function GuestConversationalRsvpPage() {
             </div>
           </div>
 
-          {/* Today Date Pill */}
           <div className="flex justify-center">
             <span className="bg-white/80 backdrop-blur-xs text-[#54656F] text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-md shadow-xs">
               Today
             </span>
           </div>
 
-          {/* INVITATION CARD MESSAGE BUBBLE */}
           <div className="flex flex-col items-start max-w-[94%]">
             <div className="bg-white rounded-2xl rounded-tl-xs p-3.5 shadow-sm border border-[#E1DDD5] space-y-3 w-full">
               
-              {/* Event Cover Photo */}
               <div className="w-full h-40 rounded-xl overflow-hidden relative shadow-inner bg-gradient-to-tr from-[#7A3B18] via-[#8F4721] to-[#D4A373]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -504,7 +487,6 @@ export default function GuestConversationalRsvpPage() {
                   alt={invite?.event?.title || 'Event invitation'}
                   className="w-full h-full object-cover opacity-85 hover:scale-105 transition-transform duration-500"
                   onError={(e) => {
-                    // Fallback visually elegant backdrop
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
@@ -518,7 +500,6 @@ export default function GuestConversationalRsvpPage() {
                 </div>
               </div>
 
-              {/* Greeting */}
               <div className="space-y-1">
                 <p className="font-serif text-sm font-semibold text-[#1F1916]">
                   Hello {invite?.fullName || 'Guest'},
@@ -528,7 +509,6 @@ export default function GuestConversationalRsvpPage() {
                 </p>
               </div>
 
-              {/* Event Metadata Card */}
               <div className="bg-[#FAF8F5] rounded-xl p-2.5 space-y-1.5 border border-[#ECE7DF] text-xs">
                 <div className="flex items-center gap-2 text-[#3D352F]">
                   <Calendar className="w-3.5 h-3.5 text-[#7A3B18] shrink-0" />
@@ -540,7 +520,6 @@ export default function GuestConversationalRsvpPage() {
                 </div>
               </div>
 
-              {/* Language Selection Header */}
               <div className="pt-1">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Sparkles className="w-3.5 h-3.5 text-[#7A3B18]" />
@@ -570,7 +549,6 @@ export default function GuestConversationalRsvpPage() {
                 </div>
               </div>
 
-              {/* RSVP Action Buttons */}
               <div className="pt-2 border-t border-[#ECE7DF] space-y-2">
                 <p className="text-xs font-semibold text-[#1F1916]">
                   Kindly indicate your attendance:
@@ -616,7 +594,6 @@ export default function GuestConversationalRsvpPage() {
                     </button>
                   </div>
 
-                  {/* Voice RSVP Button */}
                   <button
                     type="button"
                     onClick={() => setShowVoiceModal(true)}
@@ -628,7 +605,6 @@ export default function GuestConversationalRsvpPage() {
                 </div>
               </div>
 
-              {/* Timestamp */}
               <div className="flex items-center justify-end gap-1 text-[10px] text-[#70665F] pt-1">
                 <span>10:14 AM</span>
                 <CheckCheck className="w-3.5 h-3.5 text-[#53BDEB]" />
@@ -636,7 +612,6 @@ export default function GuestConversationalRsvpPage() {
             </div>
           </div>
 
-          {/* VOICE NOTE RESPONSE BUBBLE (if user recorded voice note) */}
           {hasVoiceResponse && (
             <div className="flex flex-col items-end w-full">
               <div className="bg-[#D9FDD3] rounded-2xl rounded-tr-xs p-3 shadow-xs border border-[#C2EDB9] max-w-[88%] space-y-2">
@@ -654,7 +629,6 @@ export default function GuestConversationalRsvpPage() {
                   </button>
 
                   <div className="flex-1 space-y-1">
-                    {/* Simulated Waveform */}
                     <div className="flex items-center gap-0.5 h-5">
                       {[12, 18, 8, 22, 14, 28, 19, 10, 24, 16, 20, 11, 26, 15, 9, 21].map((h, i) => (
                         <span
@@ -673,7 +647,6 @@ export default function GuestConversationalRsvpPage() {
                   </div>
                 </div>
 
-                {/* AI Transcription preview card matching Frame images */}
                 <div className="bg-white/80 rounded-xl p-2 text-[11px] text-[#2C2420] border border-black/5 space-y-1">
                   <div className="flex items-center justify-between text-[10px] font-semibold text-[#7A3B18]">
                     <span>AI Transcription</span>
@@ -692,7 +665,6 @@ export default function GuestConversationalRsvpPage() {
             </div>
           )}
 
-          {/* USER ACCEPTANCE PILL (if clicked accept button) */}
           {!hasVoiceResponse && rsvpStatus === 'accepted' && (
             <div className="flex flex-col items-end w-full">
               <div className="bg-[#D9FDD3] rounded-2xl rounded-tr-xs px-3.5 py-2 shadow-xs border border-[#C2EDB9] max-w-[85%]">
@@ -708,7 +680,6 @@ export default function GuestConversationalRsvpPage() {
             </div>
           )}
 
-          {/* ASSISTANT CONFIRMATION & GUEST COUNT SELECTOR */}
           {(rsvpStatus === 'accepted' || hasVoiceResponse) && (
             <div className="flex flex-col items-start max-w-[94%]">
               <div className="bg-white rounded-2xl rounded-tl-xs p-3.5 shadow-sm border border-[#E1DDD5] space-y-3 w-full">
@@ -716,7 +687,6 @@ export default function GuestConversationalRsvpPage() {
                   Delighted to have you, {firstName(invite?.fullName || 'Guest')}. How many people are in your party?
                 </p>
 
-                {/* Party Size Buttons */}
                 <div className="grid grid-cols-4 gap-1.5">
                   {[
                     { count: 1, label: 'Solo (1)' },
@@ -753,7 +723,6 @@ export default function GuestConversationalRsvpPage() {
             </div>
           )}
 
-          {/* GUEST PREFERENCES SELECTION CARD */}
           {(guestCountSubmitted || hasVoiceResponse) && (
             <div className="flex flex-col items-start max-w-[94%]">
               <div className="bg-white rounded-2xl rounded-tl-xs p-3.5 shadow-sm border border-[#E1DDD5] space-y-3 w-full">
@@ -765,7 +734,6 @@ export default function GuestConversationalRsvpPage() {
                   Please confirm your preferences so our protocol team can personalize your table service:
                 </p>
 
-                {/* Preference 1: Role / Relationship */}
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-[#4A403A] block">
                     Relationship / Role:
@@ -788,7 +756,6 @@ export default function GuestConversationalRsvpPage() {
                   </div>
                 </div>
 
-                {/* Preference 2: Dietary Requirements */}
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-[#4A403A] block">
                     Dietary Requirements:
@@ -811,7 +778,6 @@ export default function GuestConversationalRsvpPage() {
                   </div>
                 </div>
 
-                {/* Preference 3: Protocol Escort */}
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-[#4A403A] block">
                     Protocol & Accessibility:
@@ -857,7 +823,6 @@ export default function GuestConversationalRsvpPage() {
             </div>
           )}
 
-          {/* DIGITAL ACCESS CREDENTIAL ISSUANCE CARD */}
           {profileSubmitted && (
             <div className="flex flex-col items-start max-w-[94%]">
               <div className="bg-[#1C1714] text-white rounded-2xl rounded-tl-xs p-4 shadow-lg border border-[#3E322A] space-y-3.5 w-full">
@@ -877,7 +842,6 @@ export default function GuestConversationalRsvpPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {/* QR Thumbnail */}
                   <div className="w-20 h-20 rounded-xl bg-white p-1.5 shrink-0 flex items-center justify-center shadow-md">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -922,7 +886,6 @@ export default function GuestConversationalRsvpPage() {
             </div>
           )}
 
-          {/* EVENT LOGISTICS & GUEST BRIEFING CARD */}
           {profileSubmitted && (
             <div className="flex flex-col items-start max-w-[94%]">
               <div className="bg-white rounded-2xl rounded-tl-xs p-3.5 shadow-sm border border-[#E1DDD5] space-y-2.5 w-full">
@@ -961,7 +924,6 @@ export default function GuestConversationalRsvpPage() {
             </div>
           )}
 
-          {/* DYNAMIC USER MESSAGES */}
           {customMessages.map((msg, idx) => (
             <div
               key={idx}
@@ -1003,7 +965,6 @@ export default function GuestConversationalRsvpPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* WhatsApp Footer Input Bar */}
         <form
           onSubmit={handleSendTextMessage}
           className="relative bg-[#F0F2F5] px-2.5 py-2 flex items-center gap-1.5 border-t border-[#E1DDD5] z-30 shrink-0"
@@ -1071,12 +1032,10 @@ export default function GuestConversationalRsvpPage() {
           </p>
         )}
 
-        {/* VOICE RSVP MODAL (Replicating Guest Conversation Screen-4.png / Screen-6.png) */}
         {showVoiceModal && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-3 z-50 animate-in fade-in duration-200">
             <div className="bg-white rounded-3xl w-full max-w-sm p-5 space-y-4 shadow-2xl border border-[#E1DDD5]">
               
-              {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-[#EAE5DC] pb-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-[#7A3B18]/10 flex items-center justify-center text-[#7A3B18]">
@@ -1101,7 +1060,6 @@ export default function GuestConversationalRsvpPage() {
                 </button>
               </div>
 
-              {/* Central Voice Recording Animation Area */}
               <div className="py-6 flex flex-col items-center justify-center space-y-4">
                 <div className="relative">
                   {isRecording && (
@@ -1146,7 +1104,6 @@ export default function GuestConversationalRsvpPage() {
                 </p>
               )}
 
-              {/* Action Buttons */}
               <div className="space-y-2">
                 {!isRecording && !recordedAudioReady && (
                   <button

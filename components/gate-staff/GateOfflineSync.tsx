@@ -13,7 +13,6 @@ export function GateOfflineSync() {
       await syncOfflineScans(queued);
       await Promise.all(queued.map((row) => removeQueuedScan(row.clientScanId)));
     } catch {
-      // Stay queued until the next online event.
     }
   }, []);
 

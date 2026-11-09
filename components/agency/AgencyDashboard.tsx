@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Calendar, CalendarPlus, UserPlus, Users } from 'lucide-react';
 import { AppShell } from '@/components/shell/AppShell';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { getAgencyDashboard, type AgencyDashboard as AgencyDashboardData } from '@/lib/api/agency-dashboard';
 import { useAppSelector } from '@/store/store';
 
@@ -111,12 +112,12 @@ export function AgencyDashboard() {
     <AppShell currentRole="organizer_agency">
       <div className="space-y-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="font-serif text-[1.65rem] font-semibold tracking-tight text-foreground">
-              {greeting()}{name ? `, ${name}` : ''}
-            </h1>
-            <p className="text-sm text-muted-foreground">Here&apos;s what&apos;s happening with your agency.</p>
-          </div>
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title={`${greeting()}${name ? `, ${name}` : ''}`}
+            subtitle="Here's what's happening with your agency."
+          />
           <div className="flex items-center gap-2">
             <div className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground">
               <Calendar className="size-3.5 text-muted-foreground" />
@@ -155,12 +156,11 @@ export function AgencyDashboard() {
         <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.9fr)]">
           <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold text-foreground">Upcoming Events</h2>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Quick access to upcoming agency and client events
-                </p>
-              </div>
+              <CommonHeader
+                variant="card"
+                title="Upcoming Events"
+                subtitle="Quick access to upcoming agency and client events"
+              />
               <Link
                 href="/organizer/agency/events"
                 className="rounded-lg border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-muted"
@@ -210,8 +210,11 @@ export function AgencyDashboard() {
 
           <div className="space-y-4">
             <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
-              <h2 className="text-sm font-semibold text-foreground">Quick Actions</h2>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">Create event, add client, invite team</p>
+              <CommonHeader
+                variant="card"
+                title="Quick Actions"
+                subtitle="Create event, add client, invite team"
+              />
               <div className="mt-4 space-y-2.5">
                 {QUICK_ACTIONS.map((action) => {
                   const Icon = action.icon;
@@ -236,12 +239,11 @@ export function AgencyDashboard() {
 
             <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    New clients, event updates, team actions
-                  </p>
-                </div>
+                <CommonHeader
+                  variant="card"
+                  title="Recent Activity"
+                  subtitle="New clients, event updates, team actions"
+                />
                 {activityIsToday && (
                   <span className="text-[11px] text-muted-foreground">Today</span>
                 )}

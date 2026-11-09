@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import CommonSelect from '@/components/common/CommonSelect';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FilterPills } from '@/components/shared/FilterPills';
 import { SearchField } from '@/components/shared/SearchField';
@@ -79,7 +80,6 @@ const cellSelect =
 
 interface EventGuestsTableProps {
   eventId: string;
-  /** Draft events invite guests. Published events track RSVPs. Live events track check-in. */
   mode: 'invite' | 'rsvp' | 'checkin';
 }
 
@@ -186,7 +186,6 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
     try {
       await action();
     } catch {
-      // baseAPI already surfaces the error toast
     } finally {
       setBusyRow(null);
     }
@@ -214,7 +213,6 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
       setFormOpen(false);
       setEditing(null);
     } catch {
-      // keep the modal open so the user can fix and retry
     }
   };
 
@@ -251,7 +249,6 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
         toast.info(`${shortenedPhones} number(s) were shortened by Excel. Write them as +234 801 234 5678.`);
       }
     } catch {
-      // error toast handled by baseAPI
     }
   };
 
@@ -266,7 +263,6 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
       });
       setPendingDelete(null);
     } catch {
-      // error toast handled by baseAPI
     }
   };
 
@@ -311,32 +307,31 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
           placeholder={checkingIn ? 'Search guest name...' : 'Search'}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <CommonSelect
             aria-label={checkingIn ? 'Check-in status' : 'RSVP status'}
             value={tab}
-            onChange={(e) => setTab(e.target.value as GuestTab)}
+            item={[
+              { label: checkingIn ? 'Check-in Status' : 'RSVP Status', value: 'all' },
+              ...(checkingIn ? ['Checked-In', 'Not Arrived', 'Rejected', 'Tentative', 'Flagged'] : RSVP_STATUSES).map((status) => ({
+                label: status === 'Checked-In' ? 'Checked In' : status,
+                value: status,
+              })),
+            ]}
+            w={150}
+            onValueChange={(value) => setTab(value as GuestTab)}
             className={toolbarSelect}
-          >
-            <option value="all">{checkingIn ? 'Check-in Status' : 'RSVP Status'}</option>
-            {(checkingIn ? ['Checked-In', 'Not Arrived', 'Rejected', 'Tentative', 'Flagged'] : RSVP_STATUSES).map((status) => (
-              <option key={status} value={status}>
-                {status === 'Checked-In' ? 'Checked In' : status}
-              </option>
-            ))}
-          </select>
-          <select
+          />
+          <CommonSelect
             aria-label="Guest type"
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            item={[
+              { label: 'Guest Type', value: 'all' },
+              ...GUEST_TYPES.map((type) => ({ label: type, value: type })),
+            ]}
+            w={140}
+            onValueChange={setTypeFilter}
             className={toolbarSelect}
-          >
-            <option value="all">Guest Type</option>
-            {GUEST_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+          />
           {!checkingIn && (
           <button
             type="button"
@@ -489,23 +484,19 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
                       <p className="text-[10px] text-[#8C7D73]">{guest.phone || guest.email}</p>
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <select
+                      <CommonSelect
                         aria-label={`Guest type for ${guest.name}`}
                         value={guest.type}
                         disabled={rowBusy}
-                        onChange={(e) =>
+                        item={GUEST_TYPES.map((type) => ({ label: type, value: type }))}
+                        w={140}
+                        onValueChange={(value) =>
                           runRowAction(guest.id, () =>
-                            updateGuest({ eventId, guestId: guest.id, data: { type: e.target.value } }).unwrap(),
+                            updateGuest({ eventId, guestId: guest.id, data: { type: value } }).unwrap(),
                           )
                         }
                         className={cn(cellSelect, 'border-[#F1DFCB] bg-[#FFF8F0]')}
-                      >
-                        {GUEST_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </td>
                     {checkingIn ? (
                       <td className="px-3 py-2.5 text-center">
@@ -516,27 +507,23 @@ export function EventGuestsTable({ eventId, mode }: EventGuestsTableProps) {
                     ) : (
                       <>
                     <td className="px-3 py-2.5 text-center">
-                      <select
+                      <CommonSelect
                         aria-label={`Invite channel for ${guest.name}`}
                         value={guest.inviteThrough}
                         disabled={rowBusy}
-                        onChange={(e) =>
+                        item={INVITE_CHANNELS.map((channel) => ({ label: channel, value: channel }))}
+                        w={130}
+                        onValueChange={(value) =>
                           runRowAction(guest.id, () =>
                             updateGuest({
                               eventId,
                               guestId: guest.id,
-                              data: { inviteThrough: e.target.value },
+                              data: { inviteThrough: value },
                             }).unwrap(),
                           )
                         }
                         className={cn(cellSelect, CHANNEL_SELECT[guest.inviteThrough] ?? CHANNEL_SELECT.WhatsApp)}
-                      >
-                        {INVITE_CHANNELS.map((channel) => (
-                          <option key={channel} value={channel}>
-                            {channel}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </td>
                     <td className="px-3 py-2.5 text-center">
                       <button

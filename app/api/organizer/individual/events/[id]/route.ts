@@ -28,7 +28,6 @@ export async function GET(
     const data = await backendRes.json();
     return NextResponse.json(data);
   } catch (err: any) {
-    // Graceful fallback matching UI
     return NextResponse.json({
       success: true,
       data: {

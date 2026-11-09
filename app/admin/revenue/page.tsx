@@ -1,8 +1,10 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import Link from 'next/link';
 import { Settings, Eye, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -148,14 +150,12 @@ export default function AdminRevenuePage() {
     <AppShell currentRole="admin">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-serif font-semibold tracking-tight text-foreground">
-              Revenue & Plans
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Platform billing overview · {monthLabel}
-            </p>
-          </div>
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title="Revenue & Plans"
+            subtitle={`Platform billing overview · ${monthLabel}`}
+          />
 
           <Button
             asChild
@@ -225,15 +225,14 @@ export default function AdminRevenuePage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">Revenue Breakdown</CardTitle>
               <div className="relative">
-                <select
+                <CommonSelect
                   aria-label="Filter Breakdown Period"
                   value={periodFilter}
-                  onChange={(event) => setPeriodFilter(event.target.value)}
-                  className="appearance-none pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-                >
-                  <option value="Yearly">Yearly</option>
-                  <option value="Monthly">Monthly</option>
-                </select>
+                  item={[{ label: "Yearly", value: "Yearly" }, { label: "Monthly", value: "Monthly" }]}
+                  w="100%"
+                  onValueChange={(value) => { setPeriodFilter(value); }}
+                  className="pl-3 pr-7 py-1 text-xs rounded-lg border border-border/80 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                />
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
               </div>
             </div>
@@ -419,19 +418,15 @@ export default function AdminRevenuePage() {
           <div className="px-4 py-3 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>Rows per page</span>
-              <select
-                aria-label="Rows per page"
-                value={String(limit)}
-                onChange={(event) => {
-                  setLimit(Number(event.target.value));
-                  setPage(1);
-                }}
-                className="bg-background border border-border/80 rounded-md px-2 py-1 text-xs text-foreground focus:outline-none"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
+              <CommonSelect
+                  aria-label="Rows per page"
+                  value={String(limit)}
+                  item={[{ label: "10", value: "10" }, { label: "20", value: "20" }, { label: "50", value: "50" }]}
+                  w="100%"
+                  onValueChange={(value) => { setLimit(Number(value));
+                  setPage(1); }}
+                  className="bg-background border border-border/80 rounded-md px-2 py-1 text-xs text-foreground focus:outline-none"
+                />
               <span className="text-muted-foreground ml-2">showing {start}–{end} of {total} rows</span>
             </div>
 

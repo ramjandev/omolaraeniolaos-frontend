@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Plus, Layers } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import {
@@ -79,7 +80,6 @@ export default function AdminManagePlanPage() {
       setSegment(payload.organizerType);
       setHoveredId(null);
     } catch {
-      // The API layer already shows the error toast; keep the form open for corrections.
     }
   };
 
@@ -89,7 +89,6 @@ export default function AdminManagePlanPage() {
       await deletePlan(planToDelete.id).unwrap();
       setPlanToDelete(null);
     } catch {
-      // Error toast is shown by the API layer.
     }
   };
 
@@ -105,14 +104,12 @@ export default function AdminManagePlanPage() {
         </nav>
 
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div className="space-y-1">
-            <h1 className="font-serif text-2xl font-medium tracking-tight text-[#1F140E] dark:text-foreground">
-              Revenue &amp; Plans
-            </h1>
-            <p className="text-sm text-[#6F6761] dark:text-muted-foreground">
-              Platform billing overview · {billingPeriod}
-            </p>
-          </div>
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title="Revenue & Plans"
+            subtitle={`Platform billing overview · ${billingPeriod}`}
+          />
 
           <Button
             onClick={openCreate}

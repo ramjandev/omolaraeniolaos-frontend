@@ -129,8 +129,6 @@ export interface CheckInTelemetry {
   }>;
 }
 
-// ---- Request payloads ----
-
 export interface CreateEventPayload {
   title: string;
   category: string;
@@ -223,8 +221,6 @@ export interface GetGuestsParams {
   status?: string;
   type?: string;
 }
-
-// ---- Response types ----
 
 export type GetEventsResponse = ApiResponse<{
   events: EventItem[];

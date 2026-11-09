@@ -22,7 +22,6 @@ function StatusBox({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Plans published by the admin for one organizer type, shown during sign up. */
 export function SignupPlanGrid({
   plans,
   isLoading,
@@ -34,6 +33,12 @@ export function SignupPlanGrid({
   className,
 }: SignupPlanGridProps) {
   const columns = plans.length >= 3 ? 3 : 2;
+
+  React.useEffect(() => {
+    if (isLoading || isError || plans.length === 0) return;
+    if (selectedId && plans.some((plan) => plan.id === selectedId)) return;
+    onSelect(plans[0]);
+  }, [isLoading, isError, plans, selectedId, onSelect]);
 
   if (isLoading) {
     return (

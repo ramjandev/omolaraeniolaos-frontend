@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Save } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { MOCK_VENUE_SPACES } from '@/lib/mock-data/venue';
 
@@ -10,14 +11,12 @@ export default function VenueAvailabilityPage() {
     <AppShell currentRole="organizer_venue">
       <div className="space-y-6 w-full pb-12">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1F140E] tracking-tight">
-              Venue Availability & Operating Hours
-            </h1>
-            <p className="text-xs sm:text-sm text-[#71717A] mt-1 font-sans">
-              Configure daily operating hours, blackout dates, and buffer periods between bookings.
-            </p>
-          </div>
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title="Venue Availability & Operating Hours"
+            subtitle="Configure daily operating hours, blackout dates, and buffer periods between bookings."
+          />
 
           <button
             type="button"

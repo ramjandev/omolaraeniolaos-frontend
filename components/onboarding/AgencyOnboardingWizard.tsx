@@ -1,5 +1,6 @@
 'use client';
 
+import CommonSelect from '@/components/common/CommonSelect';
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,13 +21,11 @@ export function AgencyOnboardingWizard() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState<number>(1);
 
-  // Step 1: Agency Info matching event setup.png
   const [agencyName, setAgencyName] = React.useState('Lumina Event Studio');
   const [agencyType, setAgencyType] = React.useState('Event Planning & Production Agency');
   const [country, setCountry] = React.useState('Nigeria');
   const [city, setCity] = React.useState('Lagos');
 
-  // Step 2: Work Scope matching event setup-1.png
   const [selectedEventTypes, setSelectedEventTypes] = React.useState<string[]>([
     'Weddings',
     'Corporate Events',
@@ -35,7 +34,6 @@ export function AgencyOnboardingWizard() {
   const [eventsPerYear, setEventsPerYear] = React.useState('21-50 / year');
   const [teamSize, setTeamSize] = React.useState('6-15 members');
 
-  // Step 3: Team Roster matching event setup-2.png
   const [inviteEmail, setInviteEmail] = React.useState('');
   const [inviteRole, setInviteRole] = React.useState('Event Planner');
   const [teamMembers, setTeamMembers] = React.useState([
@@ -66,7 +64,6 @@ export function AgencyOnboardingWizard() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 space-y-8">
-      {/* Step Tracker Header */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold tracking-wider uppercase text-[#6E3B1C]">
           STEP {currentStep} OF 3
@@ -83,7 +80,6 @@ export function AgencyOnboardingWizard() {
         )}
       </div>
 
-      {/* STEP 1: Tell Us About Your Agency matching event setup.png */}
       {currentStep === 1 && (
         <Card className="rounded-3xl border-border/80 bg-card shadow-sm overflow-hidden">
           <CardContent className="p-6 md:p-10 space-y-8">
@@ -97,7 +93,6 @@ export function AgencyOnboardingWizard() {
             </div>
 
             <div className="space-y-5">
-              {/* Agency Name */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
                   Agency Name <span className="text-rose-500">*</span>
@@ -111,7 +106,6 @@ export function AgencyOnboardingWizard() {
                 />
               </div>
 
-              {/* Agency Logo Upload */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Agency Logo (Optional)</Label>
                 <div className="p-6 border-2 border-dashed border-border/80 rounded-2xl flex flex-col items-center justify-center gap-2 bg-muted/20 hover:border-[#6E3B1C] transition-colors cursor-pointer">
@@ -125,43 +119,29 @@ export function AgencyOnboardingWizard() {
                 </div>
               </div>
 
-              {/* Agency Type */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
                   Agency Type <span className="text-rose-500">*</span>
                 </Label>
-                <select
+                <CommonSelect
                   value={agencyType}
-                  onChange={(e) => setAgencyType(e.target.value)}
+                  item={[{ label: "Event Planning & Production Agency", value: "Event Planning & Production Agency" }, { label: "Wedding Planning Boutique", value: "Wedding Planning Boutique" }, { label: "Corporate Brand Agency", value: "Corporate Brand Agency" }, { label: "Hospitality & Destination Concierge", value: "Hospitality & Destination Concierge" }]}
+                  w="100%"
+                  onValueChange={(value) => { setAgencyType(value); }}
                   className="w-full h-11 px-3.5 rounded-xl border border-border/80 bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-[#6E3B1C]/30 focus:border-[#6E3B1C]"
-                >
-                  <option value="Event Planning & Production Agency">
-                    Event Planning &amp; Production Agency
-                  </option>
-                  <option value="Wedding Planning Boutique">Wedding Planning Boutique</option>
-                  <option value="Corporate Brand Agency">Corporate Brand Agency</option>
-                  <option value="Hospitality & Destination Concierge">
-                    Hospitality &amp; Destination Concierge
-                  </option>
-                </select>
+                />
               </div>
 
-              {/* Country & City */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Country</Label>
-                  <select
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full h-11 px-3.5 rounded-xl border border-border/80 bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-[#6E3B1C]/30 focus:border-[#6E3B1C]"
-                  >
-                    <option value="Nigeria">Nigeria</option>
-                    <option value="United States">United States</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Ghana">Ghana</option>
-                    <option value="South Africa">South Africa</option>
-                    <option value="Canada">Canada</option>
-                  </select>
+                  <CommonSelect
+                  value={country}
+                  item={[{ label: "Nigeria", value: "Nigeria" }, { label: "United States", value: "United States" }, { label: "United Kingdom", value: "United Kingdom" }, { label: "Ghana", value: "Ghana" }, { label: "South Africa", value: "South Africa" }, { label: "Canada", value: "Canada" }]}
+                  w="100%"
+                  onValueChange={(value) => { setCountry(value); }}
+                  className="w-full h-11 px-3.5 rounded-xl border border-border/80 bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-[#6E3B1C]/30 focus:border-[#6E3B1C]"
+                />
                 </div>
 
                 <div className="space-y-1.5">
@@ -197,7 +177,6 @@ export function AgencyOnboardingWizard() {
         </Card>
       )}
 
-      {/* STEP 2: Tell Us About Your Work matching event setup-1.png */}
       {currentStep === 2 && (
         <Card className="rounded-3xl border-border/80 bg-card shadow-sm overflow-hidden">
           <CardContent className="p-6 md:p-10 space-y-8">
@@ -211,7 +190,6 @@ export function AgencyOnboardingWizard() {
             </div>
 
             <div className="space-y-6">
-              {/* Event Types Multi-select */}
               <div className="space-y-2.5">
                 <Label className="text-xs font-semibold">
                   What types of events do you organize? (Select all that apply)
@@ -245,7 +223,6 @@ export function AgencyOnboardingWizard() {
                 </div>
               </div>
 
-              {/* Events Per Year Single-select */}
               <div className="space-y-2.5">
                 <Label className="text-xs font-semibold">
                   How many events do you produce per year?
@@ -271,7 +248,6 @@ export function AgencyOnboardingWizard() {
                 </div>
               </div>
 
-              {/* Team Size Single-select */}
               <div className="space-y-2.5">
                 <Label className="text-xs font-semibold">What is your team size?</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -319,7 +295,6 @@ export function AgencyOnboardingWizard() {
         </Card>
       )}
 
-      {/* STEP 3: Build your agency team matching event setup-2.png */}
       {currentStep === 3 && (
         <Card className="rounded-3xl border-border/80 bg-card shadow-sm overflow-hidden">
           <CardContent className="p-6 md:p-10 space-y-8">
@@ -332,7 +307,6 @@ export function AgencyOnboardingWizard() {
               </p>
             </div>
 
-            {/* Invite Form Row */}
             <form onSubmit={handleAddMember} className="space-y-2">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                 <Input
@@ -343,16 +317,13 @@ export function AgencyOnboardingWizard() {
                   className="h-11 text-xs rounded-xl flex-1"
                 />
 
-                <select
+                <CommonSelect
                   value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
+                  item={[{ label: "Event Planner", value: "Event Planner" }, { label: "Coordinator", value: "Coordinator" }, { label: "Stage Manager", value: "Stage Manager" }, { label: "Operations Lead", value: "Operations Lead" }]}
+                  w="100%"
+                  onValueChange={(value) => { setInviteRole(value); }}
                   className="h-11 px-3.5 rounded-xl border border-border/80 bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-[#6E3B1C]/30 focus:border-[#6E3B1C] shrink-0"
-                >
-                  <option value="Event Planner">Event Planner</option>
-                  <option value="Coordinator">Coordinator</option>
-                  <option value="Stage Manager">Stage Manager</option>
-                  <option value="Operations Lead">Operations Lead</option>
-                </select>
+                />
 
                 <Button
                   type="submit"
@@ -364,7 +335,6 @@ export function AgencyOnboardingWizard() {
               </div>
             </form>
 
-            {/* Pending Invitations Roster matching event setup-2.png */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
                 <span>Pending Invitations ({teamMembers.length})</span>

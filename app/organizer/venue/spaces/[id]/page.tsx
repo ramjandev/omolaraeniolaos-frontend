@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, MapPin, Plus, Users } from 'lucide-react';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { getVenueSpace, type VenueSpaceDetail } from '@/lib/api/venue-spaces';
 
@@ -72,13 +73,17 @@ export default function SingleVenueDetailPage({ params }: { params: Promise<{ id
         {venue && (
           <>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1F140E]">{venue.name}</h1>
-                <p className="text-xs sm:text-sm text-[#8C7A6B] flex items-center gap-1.5 mt-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>{venue.address || 'Address not set'}</span>
-                </p>
-              </div>
+              <CommonHeader
+                variant="section"
+                as="h1"
+                title={venue.name}
+                subtitle={
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="size-3.5" />
+                    {venue.address || 'Address not set'}
+                  </span>
+                }
+              />
               <Link href="/organizer/venue/spaces" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1F140E] text-white text-xs font-semibold">
                 <Plus className="w-3.5 h-3.5" /> Add Venue
               </Link>

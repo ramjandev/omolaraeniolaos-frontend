@@ -10,12 +10,10 @@ export function useLogout() {
   const dispatch = useAppDispatch();
 
   const handleLogout = () => {
-    // 1. Dispatch Redux logout action
     try {
       dispatch(logout());
     } catch {}
 
-    // 2. Clear client storage
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('token');
@@ -29,12 +27,10 @@ export function useLogout() {
       } catch {}
     }
 
-    // 3. User feedback
     try {
       toast.success('Logged out successfully');
     } catch {}
 
-    // 4. Redirect to login
     router.push('/login');
   };
 

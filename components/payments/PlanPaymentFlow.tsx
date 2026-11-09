@@ -7,6 +7,7 @@ import {
   PlanCardGrid,
   planPriceSuffix,
 } from "@/components/plans/PlanCard";
+import { CommonHeader } from "@/components/shared/CommonHeader";
 import { useStartPlanPayment } from "@/lib/payments/startPlanPayment";
 import { useGetPlansQuery } from "@/store/Plan/planApi";
 import type { Plan, PlanOrganizerType } from "@/store/Plan/types/planTypes";
@@ -57,14 +58,12 @@ export function PlanPaymentFlow({
   if (!selectedPlan) {
     return (
       <section className="space-y-6">
-        <div>
-          <h2 className="font-serif text-3xl font-normal tracking-tight text-[#1F140E] dark:text-foreground">
-            Tailored Single-Event Package Pricing
-          </h2>
-          <p className="mt-1 text-sm text-[#6F6761] dark:text-muted-foreground">
-            Whether you&apos;re starting small or scaling fast, we have an automation plan that fits.
-          </p>
-        </div>
+        <CommonHeader
+          variant="section"
+          as="h2"
+          title="Tailored Single-Event Package Pricing"
+          subtitle="Whether you're starting small or scaling fast, we have an automation plan that fits."
+        />
 
         <PlanCardGrid>
           {isLoading && <p className="text-sm text-[#6F6761]">Loading plans…</p>}
@@ -110,14 +109,12 @@ export function PlanPaymentFlow({
 
   return (
     <section className="space-y-6">
-      <div>
-        <h2 className="font-serif text-3xl font-normal tracking-tight text-[#1F140E] dark:text-foreground">
-          Complete Your Setup
-        </h2>
-        <p className="mt-1 text-sm text-[#6F6761] dark:text-muted-foreground">
-          Select a package to activate your event and start inviting.
-        </p>
-      </div>
+      <CommonHeader
+        variant="section"
+        as="h2"
+        title="Complete Your Setup"
+        subtitle="Select a package to activate your event and start inviting."
+      />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-5">

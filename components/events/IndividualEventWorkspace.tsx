@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CommonHeader } from "@/components/shared/CommonHeader";
 import { getAgencyClients, getAgencyTeam, type AgencyClientOption, type AgencyTeamMemberRow } from "@/lib/api/agency-dashboard";
 import { getVenueSpaces, type VenueSpaceCard } from "@/lib/api/venue-spaces";
 import { eventsPath, ORGANIZERS, type OrganizerKind } from "@/lib/organizer";
@@ -45,13 +46,13 @@ import {
 } from "@/store/eventSlice/eventSlice";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import { zodResolver } from "@hookform/resolvers/zod";
+import CommonSelect from "@/components/common/CommonSelect";
 import { PlanPaymentFlow } from "@/components/payments/PlanPaymentFlow";
 import type { PlanOrganizerType } from "@/store/Plan/types/planTypes";
 import {
   ArrowRight,
   CalendarDays,
   Check,
-  ChevronDown,
   Eye,
   MapPin,
   Send,
@@ -726,7 +727,6 @@ export function IndividualEventWorkspace({
     try {
       await createEventFromWizard();
     } catch {
-      // baseAPI surfaces the server error as a toast
     } finally {
       setIsProcessingPayment(false);
     }
@@ -835,7 +835,6 @@ export function IndividualEventWorkspace({
         </div>
       </div>
 
-      {/* STEP 1: BASICS FORM */}
       {activeStep === "basics" && (
         <Card className="rounded-3xl border border-[#EBE3D9] dark:border-border bg-card p-6 md:p-10 shadow-2xs">
           <div className="space-y-6">
@@ -899,30 +898,25 @@ export function IndividualEventWorkspace({
                     <Label className="text-xs font-semibold text-foreground">
                       Venue <span className="text-rose-500">*</span>
                     </Label>
-                    <div className="relative">
-                      <select
-                        className="w-full h-11 px-4 pr-10 rounded-xl bg-[#FAF8F5] dark:bg-muted/40 border border-[#EBE3D9] dark:border-border text-xs text-foreground appearance-none cursor-pointer"
-                        value={basicsForm.watch("spaceId") || ""}
-                        onChange={(event) => {
-                          const spaceId = event.target.value;
-                          basicsForm.setValue("spaceId", spaceId, { shouldValidate: true });
-                          const space = venueSpaces.find((item) => item.id === spaceId);
-                          if (!space) return;
-                          basicsForm.setValue("venue", space.address || space.name, { shouldValidate: true });
-                          if (space.address) {
-                            detailsForm.setValue("fullVenueAddress", space.address, { shouldValidate: true });
-                          }
-                        }}
-                      >
-                        <option value="">Select Venue</option>
-                        {venueSpaces.map((space) => (
-                          <option key={space.id} value={space.id}>
-                            {space.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
+                    <CommonSelect
+                      value={basicsForm.watch("spaceId") || "__empty__"}
+                      item={[
+                        { label: "Select Venue", value: "__empty__" },
+                        ...venueSpaces.map((space) => ({ label: space.name, value: space.id })),
+                      ]}
+                      w="100%"
+                      onValueChange={(spaceId) => {
+                        const next = spaceId === "__empty__" ? "" : spaceId;
+                        basicsForm.setValue("spaceId", next, { shouldValidate: true });
+                        const space = venueSpaces.find((item) => item.id === next);
+                        if (!space) return;
+                        basicsForm.setValue("venue", space.address || space.name, { shouldValidate: true });
+                        if (space.address) {
+                          detailsForm.setValue("fullVenueAddress", space.address, { shouldValidate: true });
+                        }
+                      }}
+                      className="w-full h-11 px-4 rounded-xl bg-[#FAF8F5] dark:bg-muted/40 border border-[#EBE3D9] dark:border-border text-xs text-foreground"
+                    />
                     {venueSpaces.length === 0 ? (
                       <p className="text-xs text-[#736B66]">Add a venue before creating an event.</p>
                     ) : null}
@@ -952,6 +946,8 @@ export function IndividualEventWorkspace({
                   nameError={basicsForm.formState.errors.teamName?.message}
                   roleError={basicsForm.formState.errors.teamRole?.message}
                   emailError={basicsForm.formState.errors.teamEmail?.message}
+                  teamRole={basicsForm.watch("teamRole") || ""}
+                  onTeamRoleChange={(value) => basicsForm.setValue("teamRole", value, { shouldValidate: true })}
                   onToggle={(token) => {
                     const current = basicsForm.getValues("teamIds") || [];
                     basicsForm.setValue(
@@ -981,19 +977,23 @@ export function IndividualEventWorkspace({
                 <Label className="text-xs font-semibold text-foreground">
                   Event Type <span className="text-rose-500">*</span>
                 </Label>
-                <div className="relative">
-                  <select
-                    className="w-full h-11 px-4 pr-10 rounded-xl bg-[#FAF8F5] dark:bg-muted/40 border border-[#EBE3D9] dark:border-border text-xs text-foreground appearance-none cursor-pointer"
-                    {...basicsForm.register("eventType")}
-                  >
-                    <option value="Gala">Gala &amp; Investiture</option>
-                    <option value="Wedding">Wedding</option>
-                    <option value="Conference">Conference</option>
-                    <option value="Private Dinner">Private Dinner</option>
-                    <option value="Birthday">Birthday Celebration</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+                <CommonSelect
+                  value={basicsForm.watch("eventType")}
+                  item={[
+                    { label: "Gala & Investiture", value: "Gala" },
+                    { label: "Wedding", value: "Wedding" },
+                    { label: "Conference", value: "Conference" },
+                    { label: "Private Dinner", value: "Private Dinner" },
+                    { label: "Birthday Celebration", value: "Birthday" },
+                  ]}
+                  w="100%"
+                  onValueChange={(value) =>
+                    basicsForm.setValue("eventType", value as BasicsFormValues["eventType"], {
+                      shouldValidate: true,
+                    })
+                  }
+                  className="w-full h-11 px-4 rounded-xl bg-[#FAF8F5] dark:bg-muted/40 border border-[#EBE3D9] dark:border-border text-xs text-foreground"
+                />
                 {fieldError(basicsForm.formState.errors.eventType?.message)}
               </div>
 
@@ -1078,7 +1078,6 @@ export function IndividualEventWorkspace({
         </Card>
       )}
 
-      {/* STEP 2: DETAILS WITH LIVE GUEST PREVIEW matching media_1791786529012_0b9b48bc.png */}
       {activeStep === "details" && (
         <Card className="rounded-3xl border border-[#EBE3D9] dark:border-border bg-card p-6 md:p-10 shadow-2xs">
           <div className="space-y-6">
@@ -1092,7 +1091,6 @@ export function IndividualEventWorkspace({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-2 items-start">
-              {/* Form Fields (Left Column) */}
               <form
                 onSubmit={continueDetails}
                 noValidate
@@ -1174,7 +1172,6 @@ export function IndividualEventWorkspace({
                 </div>
               </form>
 
-              {/* Guest Preview Card (Right Column) matching screenshot */}
               <div className="lg:col-span-5 sticky top-6">
                 <div className="rounded-3xl border border-[#E8DACB] bg-[#FFFDFB] dark:bg-card p-6 shadow-sm space-y-5">
                   <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1F140E] dark:text-foreground">
@@ -1219,7 +1216,6 @@ export function IndividualEventWorkspace({
         </Card>
       )}
 
-      {/* STEP 3: ADD YOUR GUESTS matching media_1791786578945_e49486c9.png */}
       {activeStep === "guests" && (
         <div className="space-y-6">
           <GuestListManager
@@ -1252,7 +1248,6 @@ export function IndividualEventWorkspace({
         </div>
       )}
 
-      {/* STEP 4: CHOOSE INVITATION STYLE matching media_1791786529508_aa42339e.png */}
       {activeStep === "invitation" && (
         <div className="space-y-6">
           <div className="space-y-1.5">
@@ -1265,7 +1260,6 @@ export function IndividualEventWorkspace({
             </p>
           </div>
 
-          {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {(
               [
@@ -1295,7 +1289,6 @@ export function IndividualEventWorkspace({
             })}
           </div>
 
-          {/* 3-Column Template Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
             {INVITATION_TEMPLATES.filter((tpl) =>
               invitationFilter === "All Template"
@@ -1319,7 +1312,6 @@ export function IndividualEventWorkspace({
                   </span>
                 </div>
 
-                {/* Floral / Formal Card Canvas */}
                 <div className="relative rounded-2xl bg-[#FFFDF9] dark:bg-[#1C140E] border border-[#E8DFC8] p-5 shadow-xs flex flex-col items-center justify-between text-center overflow-hidden min-h-[300px]">
                   <div className="w-full h-full border border-[#C5A880]/70 rounded-xl p-3 flex flex-col items-center justify-between bg-white/60 dark:bg-black/20">
                     <div className="space-y-1 pt-1">
@@ -1337,7 +1329,6 @@ export function IndividualEventWorkspace({
                       </p>
                     </div>
 
-                    {/* Rose Floral SVG Cluster */}
                     <div className="relative w-full h-14 mt-2 flex items-center justify-center">
                       <svg
                         viewBox="0 0 200 65"
@@ -1374,7 +1365,6 @@ export function IndividualEventWorkspace({
                   </div>
                 </div>
 
-                {/* Card Actions */}
                 <div className="flex items-center justify-between pt-1">
                   <button
                     type="button"
@@ -1518,7 +1508,6 @@ export function IndividualEventWorkspace({
         />
       )}
 
-      {/* MODAL 1: TEMPLATE PREVIEW PHONE MODAL matching media_1791786591403_9b130538.png */}
       <Dialog
         open={!!previewTemplate}
         onOpenChange={() => setPreviewTemplate(null)}
@@ -1544,9 +1533,7 @@ export function IndividualEventWorkspace({
             </Button>
           </div>
 
-          {/* Mobile WhatsApp Mockup */}
           <div className="w-full max-w-sm mx-auto rounded-3xl border-4 border-stone-800 bg-[#EFEAE2] overflow-hidden shadow-2xl">
-            {/* WhatsApp Header */}
             <div className="bg-[#075E54] text-white p-3 flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-full bg-[#E8DFC8] text-[#1F140E] flex items-center justify-center text-xs font-bold">
                 M
@@ -1559,14 +1546,12 @@ export function IndividualEventWorkspace({
               </div>
             </div>
 
-            {/* Chat Body */}
             <div className="p-3 space-y-3 min-h-[360px] bg-[radial-gradient(#d1c7b7_1px,transparent_1px)] [background-size:16px_16px]">
               <div className="p-2 rounded-xl bg-white/90 text-center text-[10px] text-[#6E3B1C] border border-[#E8DACB]">
                 Messages are end-to-end encrypted and powered by McEniesVite
                 Concierge.
               </div>
 
-              {/* Message Bubble Card */}
               <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2 border border-stone-200">
                 <div className="relative rounded-xl border border-[#C5A880] p-3 text-center bg-[#FFFDF9]">
                   <p className="font-serif text-[10px] uppercase tracking-wider text-[#7C6651]">
@@ -1604,7 +1589,6 @@ export function IndividualEventWorkspace({
               </div>
             </div>
 
-            {/* Chat Bar */}
             <div className="p-2 bg-[#F0F0F0] border-t flex items-center gap-2">
               <input
                 disabled
@@ -1631,7 +1615,6 @@ export function IndividualEventWorkspace({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: CUSTOMIZE INVITATION DETAILS matching media_1791786591277_406037a8.png */}
       <Dialog
         open={isCustomizeModalOpen}
         onOpenChange={setIsCustomizeModalOpen}
@@ -1650,7 +1633,6 @@ export function IndividualEventWorkspace({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start pt-2">
-            {/* Left: Mobile Phone Preview */}
             <div className="md:col-span-5 w-full max-w-sm mx-auto rounded-3xl border-4 border-stone-800 bg-[#EFEAE2] overflow-hidden shadow-2xl">
               <div className="bg-[#075E54] text-white p-3 flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-full bg-[#E8DFC8] text-[#1F140E] flex items-center justify-center text-xs font-bold">
@@ -1712,7 +1694,6 @@ export function IndividualEventWorkspace({
               </div>
             </div>
 
-            {/* Right: Customization Inputs */}
             <div className="md:col-span-7 space-y-4">
               <div className="p-4 rounded-2xl bg-[#FCEDE6] border border-[#F5D5C6] space-y-1">
                 <p className="font-bold text-xs text-[#6E3B1C]">
@@ -1819,7 +1800,6 @@ export function IndividualEventWorkspace({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 4: YOUR EVENT IS READY SUCCESS MODAL matching uploaded_media_2_1791786558314.png */}
       <Dialog open={isReadySuccessOpen} onOpenChange={setIsReadySuccessOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-8 text-center space-y-5">
           <div className="w-16 h-16 rounded-2xl bg-[#2D5A46] text-white mx-auto flex items-center justify-center text-2xl shadow-md">
@@ -1960,24 +1940,24 @@ function AgencyClientPicker({
         <Label htmlFor="event-client" className="text-xs font-semibold text-foreground">
           Client <span className="text-rose-500">*</span>
         </Label>
-        <div className="relative">
-          <select
-            id="event-client"
-            className={selectClass}
-            value={clientId}
-            onChange={(event) => onClientChange(event.target.value)}
-          >
-            <option value="">{clients.length ? "Select a previous client" : "No previous clients yet"}</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-                {client.contactEmail ? ` · ${client.contactEmail}` : ""}
-              </option>
-            ))}
-            <option value="__new__">Add a new client</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
+        <CommonSelect
+          id="event-client"
+          value={clientId || "__none__"}
+          item={[
+            {
+              label: clients.length ? "Select a previous client" : "No previous clients yet",
+              value: "__none__",
+            },
+            ...clients.map((client) => ({
+              label: `${client.name}${client.contactEmail ? ` · ${client.contactEmail}` : ""}`,
+              value: client.id,
+            })),
+            { label: "Add a new client", value: "__new__" },
+          ]}
+          w="100%"
+          onValueChange={(value) => onClientChange(value === "__none__" ? "" : value)}
+          className={selectClass}
+        />
         {fieldError(error)}
       </div>
       {clientId === "__new__" && (
@@ -2020,9 +2000,11 @@ function AgencyTeamPicker({
   roleError,
   emailError,
   teamError,
+  teamRole,
   roles = ["Admin", "Gate Staff"],
   onToggle,
   onAddingChange,
+  onTeamRoleChange,
   register,
 }: {
   members: AgencyTeamMemberRow[];
@@ -2033,9 +2015,11 @@ function AgencyTeamPicker({
   roleError?: string;
   emailError?: string;
   teamError?: string;
+  teamRole: string;
   roles?: Array<"Admin" | "Gate Staff">;
   onToggle: (token: string) => void;
   onAddingChange: (value: boolean) => void;
+  onTeamRoleChange: (value: string) => void;
   register: UseFormRegister<BasicsFormValues>;
 }) {
   return (
@@ -2080,12 +2064,16 @@ function AgencyTeamPicker({
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-semibold">Role</Label>
-            <select className={selectClass} {...register("teamRole")}>
-              <option value="">Select Role</option>
-              {roles.map((role) => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
+            <CommonSelect
+              value={teamRole || "__empty__"}
+              item={[
+                { label: "Select Role", value: "__empty__" },
+                ...roles.map((role) => ({ label: role, value: role })),
+              ]}
+              w="100%"
+              onValueChange={(value) => onTeamRoleChange(value === "__empty__" ? "" : value)}
+              className={selectClass}
+            />
             {fieldError(roleError)}
           </div>
           <div className="space-y-2">
@@ -2175,14 +2163,13 @@ function AgencyEventReview({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1 px-1">
-        <h2 className="font-serif text-3xl font-medium text-[#1F140E] dark:text-foreground">
-          Review Your Event
-        </h2>
-        <p className="text-sm text-[#736B66]">
-          Review all details before completing your event creation. You can edit any section below.
-        </p>
-      </div>
+      <CommonHeader
+        className="px-1"
+        variant="section"
+        as="h2"
+        title="Review Your Event"
+        subtitle="Review all details before completing your event creation. You can edit any section below."
+      />
 
       <section className="rounded-2xl border border-[#EBE3D9] bg-white p-5 shadow-2xs dark:border-border dark:bg-card md:p-6">
         <div className="mb-5 flex items-center justify-between gap-3">

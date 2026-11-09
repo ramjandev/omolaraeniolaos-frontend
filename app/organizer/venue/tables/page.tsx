@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { ChevronDown, ChevronUp, MapPin, Plus, Download, Edit2, Trash2 } from 'lucide-react';
+import CommonSelect from '@/components/common/CommonSelect';
+import { CommonHeader } from '@/components/shared/CommonHeader';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,24 +79,26 @@ export default function VenueTablesPage() {
     <AppShell currentRole="organizer_venue">
       <div className="space-y-7 w-full pb-12">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1F140E] tracking-tight">
-              {layout?.hall ? `${layout.hall.name} Seating Layout` : 'Seating Layout'}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#8C7A6B] flex items-center gap-1.5 mt-1">
-              <MapPin className="w-3.5 h-3.5" />
-              <span>{layout?.hall?.address || 'Add a venue before arranging tables'}</span>
-            </p>
-          </div>
+          <CommonHeader
+            variant="section"
+            as="h1"
+            title={layout?.hall ? `${layout.hall.name} Seating Layout` : 'Seating Layout'}
+            subtitle={
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="size-3.5" />
+                {layout?.hall?.address || 'Add a venue before arranging tables'}
+              </span>
+            }
+          />
           <div className="flex items-center gap-2.5">
             {(layout?.spaces.length ?? 0) > 1 && (
-              <select
+              <CommonSelect
                 value={spaceId}
-                onChange={(event) => setSpaceId(event.target.value)}
-                className="h-9 rounded-xl border border-[#E5E0D8] bg-white px-3 text-xs"
-              >
-                {layout?.spaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
-              </select>
+                item={(layout?.spaces || []).map((space) => ({ label: space.name, value: space.id }))}
+                w={180}
+                onValueChange={setSpaceId}
+                className="h-9 rounded-xl border-[#E5E0D8] bg-white text-xs"
+              />
             )}
             <button type="button" onClick={exportLayout} className="inline-flex items-center gap-2 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2 text-xs font-semibold text-[#1F140E]">
               <Download className="h-3.5 w-3.5 text-[#6E3B1C]" /> Export Layout
@@ -182,24 +186,23 @@ export default function VenueTablesPage() {
                             <CategoryBadge category={table.category} />
                           </button>
                           <p className="text-xs text-[#8C7A6B]">{table.seats} seats</p>
-                          <select
+                          <CommonSelect
                             value={table.status}
-                            onChange={(event) => {
-                              const status = event.target.value as SeatStatus;
+                            item={STATUSES.map((status) => ({ label: `● ${status}`, value: status }))}
+                            w="100%"
+                            onValueChange={(status) => {
                               saveSeatingTable(zone.id, {
                                 tableId: table.id,
                                 name: table.tableNumber,
                                 seats: table.seats,
                                 seatType: table.category,
-                                status,
+                                status: status as SeatStatus,
                               }).then(setLayout).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Could not update the table'));
                             }}
-                            className={`w-full cursor-pointer rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${
+                            className={`h-8 w-full cursor-pointer rounded-lg border px-2.5 text-xs font-semibold ${
                               table.status === 'Reserved' ? 'border-amber-200 bg-amber-50 text-amber-800' : table.status === 'Available' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-zinc-200 bg-zinc-100 text-zinc-700'
                             }`}
-                          >
-                            {STATUSES.map((status) => <option key={status} value={status}>● {status}</option>)}
-                          </select>
+                          />
                         </div>
                       ))}
                       <button
@@ -313,9 +316,13 @@ function ZoneDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Category *</Label>
-            <select value={category} onChange={(event) => setCategory(event.target.value as SeatCategory)} className="h-10 w-full rounded-xl border px-3 text-sm">
-              {CATEGORIES.map((item) => <option key={item}>{item}</option>)}
-            </select>
+            <CommonSelect
+              value={category}
+              item={CATEGORIES.map((item) => ({ label: item, value: item }))}
+              w="100%"
+              onValueChange={(value) => setCategory(value as SeatCategory)}
+              className="h-10 w-full rounded-xl border text-sm"
+            />
           </div>
           {formError && <p className="text-xs text-red-600">{formError}</p>}
           <div className="flex justify-end gap-2">
@@ -385,15 +392,23 @@ function TableDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Seat Type</Label>
-              <select value={seatType} onChange={(event) => setSeatType(event.target.value as SeatCategory)} className="h-10 w-full rounded-xl border px-3 text-sm">
-                {CATEGORIES.map((item) => <option key={item}>{item}</option>)}
-              </select>
+              <CommonSelect
+                value={seatType}
+                item={CATEGORIES.map((item) => ({ label: item, value: item }))}
+                w="100%"
+                onValueChange={(value) => setSeatType(value as SeatCategory)}
+                className="h-10 w-full rounded-xl border text-sm"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <select value={status} onChange={(event) => setStatus(event.target.value as SeatStatus)} className="h-10 w-full rounded-xl border px-3 text-sm">
-                {STATUSES.map((item) => <option key={item}>{item}</option>)}
-              </select>
+              <CommonSelect
+                value={status}
+                item={STATUSES.map((item) => ({ label: item, value: item }))}
+                w="100%"
+                onValueChange={(value) => setStatus(value as SeatStatus)}
+                className="h-10 w-full rounded-xl border text-sm"
+              />
             </div>
           </div>
           {formError && <p className="text-xs text-red-600">{formError}</p>}

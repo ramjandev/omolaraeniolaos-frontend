@@ -13,6 +13,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import CommonSelect from '@/components/common/CommonSelect';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { getVenueReport, type VenueReport } from '@/lib/api/venue-reports';
 
 const RANGES = [
@@ -57,35 +59,27 @@ export function VenueReports() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="font-serif text-4xl font-medium text-[#1F140E]">Reports & Analytics</h1>
-          <p className="mt-1 text-sm text-[#736B66]">Venue usage, booking trends, and capacity performance.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={spaceId}
-            onChange={(event) => setSpaceId(event.target.value)}
-            className="h-10 rounded-xl border border-[#E4DDD6] bg-white px-3 text-sm text-[#3F342C]"
-          >
-            <option value="">All Venues</option>
-            {(report?.spaces || []).map((space) => (
-              <option key={space.id} value={space.id}>
-                {space.name}
-              </option>
-            ))}
-          </select>
-          <select
+      <PageHeader
+        title="Reports & Analytics"
+        description="Venue usage, booking trends, and capacity performance."
+      >
+          <CommonSelect
+            value={spaceId || '__all__'}
+            item={[
+              { label: 'All Venues', value: '__all__' },
+              ...(report?.spaces || []).map((space) => ({ label: space.name, value: space.id })),
+            ]}
+            w={180}
+            onValueChange={(value) => setSpaceId(value === '__all__' ? '' : value)}
+            className="h-10 rounded-xl border-[#E4DDD6] bg-white text-sm text-[#3F342C]"
+          />
+          <CommonSelect
             value={range}
-            onChange={(event) => setRange(event.target.value)}
-            className="h-10 rounded-xl border border-[#E4DDD6] bg-white px-3 text-sm text-[#3F342C]"
-          >
-            {RANGES.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+            item={RANGES.map((item) => ({ label: item.label, value: item.id }))}
+            w={160}
+            onValueChange={setRange}
+            className="h-10 rounded-xl border-[#E4DDD6] bg-white text-sm text-[#3F342C]"
+          />
           <button
             type="button"
             onClick={() => report && exportReport(report)}
@@ -95,8 +89,7 @@ export function VenueReports() {
             <Download className="size-4" />
             Export
           </button>
-        </div>
-      </div>
+      </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
